@@ -39,3 +39,14 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# audio files
+*.mp3
+*.wav
+*.mp4
+*.webm
+*.m4a
+
+
+# other files
+/.agents/skills/react-19
