@@ -71,6 +71,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   const accumulatedDurationRef = useRef<number>(0);
   const isPlaybackInterruptedRef = useRef<boolean>(false);
   const isCurrentlyPlayingRef = useRef<boolean>(false);
+  const isPausedRef = useRef<boolean>(false);
 
   // --- Streaming Audio Control Functions ---
   
@@ -78,7 +79,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
    * Play next buffer in the queue
    */
   const playNextBuffer = useCallback((ctx: AudioContext) => {
-    if (playbackQueueRef.current.length === 0 || isPlaybackInterruptedRef.current) {
+    if (playbackQueueRef.current.length === 0 || isPlaybackInterruptedRef.current || isPausedRef.current) {
       isCurrentlyPlayingRef.current = false;
       setIsPlaying(false);
       return;
@@ -96,7 +97,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     
     // When this buffer ends, play next
     source.onended = () => {
-      if (!isPlaybackInterruptedRef.current) {
+      if (!isPlaybackInterruptedRef.current && !isPausedRef.current) {
         playNextBuffer(ctx);
       } else {
         isCurrentlyPlayingRef.current = false;
@@ -120,28 +121,59 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   }, []);
   
   /**
-   * Pause playback
+   * Pause playback - just suspend context, don't stop source
    */
-  const pausePlayback = useCallback(() => {
+  const pausePlayback = useCallback(async () => {
+    console.log("[audio-hook] Pause requested");
     if (audioContextRef.current && audioContextRef.current.state === "running") {
-      audioContextRef.current.suspend();
-      isCurrentlyPlayingRef.current = false;
-      setIsPlaying(false);
-      cancelAnimationFrame(animationFrameRef.current);
+      try {
+        await audioContextRef.current.suspend();
+        isPausedRef.current = true;
+        isCurrentlyPlayingRef.current = false;
+        setIsPlaying(false);
+        cancelAnimationFrame(animationFrameRef.current);
+        console.log("[audio-hook] Paused successfully. Context state:", audioContextRef.current.state);
+      } catch (e) {
+        console.error("Failed to suspend audio context:", e);
+      }
+    } else {
+      console.log("[audio-hook] Cannot pause: context not running or null. State:", audioContextRef.current?.state);
     }
   }, []);
   
   /**
-   * Resume playback
+   * Resume playback - just resume context, source will continue automatically
    */
-  const resumePlayback = useCallback(() => {
-    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
-      audioContextRef.current.resume();
-      isCurrentlyPlayingRef.current = true;
-      setIsPlaying(true);
-      startUpdateTimeAnimation(audioContextRef.current);
+  const resumePlayback = useCallback(async () => {
+    console.log("[audio-hook] Resume requested. Context state:", audioContextRef.current?.state);
+    if (audioContextRef.current) {
+      try {
+        await audioContextRef.current.resume();
+        isPausedRef.current = false;
+        console.log("[audio-hook] Resumed successfully. Context state:", audioContextRef.current.state);
+        
+        // If there was a source playing, it will continue automatically
+        if (currentSourceRef.current) {
+          isCurrentlyPlayingRef.current = true;
+          setIsPlaying(true);
+          startUpdateTimeAnimation(audioContextRef.current);
+          console.log("[audio-hook] Continuing with existing source");
+        } else if (playbackQueueRef.current.length > 0) {
+          // If no source but there are buffers, start playing
+          console.log("[audio-hook] Starting playback from queue. Queue length:", playbackQueueRef.current.length);
+          playNextBuffer(audioContextRef.current);
+          setIsPlaying(true);
+          startUpdateTimeAnimation(audioContextRef.current);
+        } else {
+          console.log("[audio-hook] No source and empty queue. Nothing to play.");
+        }
+      } catch (e) {
+        console.error("Failed to resume audio context:", e);
+      }
+    } else {
+      console.log("[audio-hook] Cannot resume: no audio context");
     }
-  }, [startUpdateTimeAnimation]);
+  }, [playNextBuffer, startUpdateTimeAnimation]);
   
   /**
    * Stop streaming playback completely
@@ -154,6 +186,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     
     isPlaybackInterruptedRef.current = true;
     isCurrentlyPlayingRef.current = false;
+    isPausedRef.current = false;
     if (currentSourceRef.current) {
       try {
         currentSourceRef.current.stop();
@@ -246,8 +279,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
           // Update progress
           setStreamingProgress({ current: chunkIndex + 1, total: totalChunks });
           
-          // Start playback if not already playing
-          if (!isCurrentlyPlayingRef.current && !isPlaybackInterruptedRef.current) {
+          // Start playback if not already playing and not paused
+          if (!isCurrentlyPlayingRef.current && !isPlaybackInterruptedRef.current && !isPausedRef.current) {
             playNextBuffer(ctx);
             setIsPlaying(true);
             startUpdateTimeAnimation(ctx);
