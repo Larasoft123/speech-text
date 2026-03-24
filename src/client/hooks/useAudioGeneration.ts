@@ -165,9 +165,6 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     setIsStreaming(false);
     setStreamingProgress(null);
     setStreamingStartTime(null);
-    setGenerationState("idle");
-    setError(null);
-    setModelProgress(null);
   }, []);
   
   // Initialize worker on mount
@@ -212,12 +209,6 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
         }
 
         case "audio-chunk": {
-          // If streaming was stopped, ignore chunk
-          if (!isStreaming || isPlaybackInterruptedRef.current) {
-            console.log("[audio-hook] Ignoring chunk - streaming stopped");
-            break;
-          }
-          
           const { chunkIndex, totalChunks, audio, samplingRate, isLast, id } = response;
           
           // Initialize audio context if needed
