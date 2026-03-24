@@ -1,0 +1,495 @@
+/**
+ * Custom hook for client-side TTS audio generation.
+ * Runs inference in a Web Worker to keep UI responsive.
+ * Automatically detects WebGPU with WASM fallback.
+ */
+
+import { useState, useRef, useEffect, useCallback } from "react";
+import { audioToBlobUrl, revokeAudioUrl, downloadAudio as downloadAudioUtil } from "@/client/lib/client-audio-utils";
+import {
+  AVAILABLE_TTS_MODELS,
+  type AudioGeneratorModel,
+  type AudioGenerationResult,
+  type Voice,
+} from "@/client/lib/client-audio-generator";
+import type {
+  WorkerRequest,
+  WorkerResponse,
+} from "@/client/workers/audio-gen.worker";
+
+// ============================================================================
+// Types
+// ============================================================================
+
+export type GenerationState = "idle" | "loading" | "generating";
+
+// Pending request resolver
+type PendingRequest = {
+  resolve: (result: AudioGenerationResult) => void;
+  reject: (error: Error) => void;
+};
+
+// ============================================================================
+// State
+// ============================================================================
+
+let requestCounter = 0;
+const pendingRequests = new Map<string, PendingRequest>();
+
+// ============================================================================
+// Hook
+// ============================================================================
+
+export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
+  const defaultModel = initialModel ?? AVAILABLE_TTS_MODELS[0];
+  
+  const [selectedModel, setSelectedModel] = useState<AudioGeneratorModel>(defaultModel);
+  const [selectedVoice, setSelectedVoice] = useState<Voice>(defaultModel.voices[0]);
+  const [generationState, setGenerationState] = useState<GenerationState>("loading");
+  const [modelProgress, setModelProgress] = useState<{ status: string; progress?: number; file?: string } | null>(null);
+  const [generatedAudio, setGeneratedAudio] = useState<{ audioUrl: string; samplingRate: number; audioData: Float32Array } | null>(null);
+  const [error, setError] = useState<string | null>(null);
+  const [isModelReady, setIsModelReady] = useState(false);
+  const [device, setDevice] = useState<"webgpu" | "wasm" | null>(null);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const [streamingProgress, setStreamingProgress] = useState<{ current: number; total: number } | null>(null);
+  const [isPlaying, setIsPlaying] = useState(false);
+  const [currentTime, setCurrentTime] = useState(0);
+  const [totalDuration, setTotalDuration] = useState(0);
+  const [streamingStartTime, setStreamingStartTime] = useState<number | null>(null);
+
+  const workerRef = useRef<Worker | null>(null);
+  const currentAudioUrlRef = useRef<string | null>(null);
+  const currentAudioDataRef = useRef<Float32Array | null>(null);
+  
+  // Audio streaming state
+  const audioContextRef = useRef<AudioContext | null>(null);
+  const playbackQueueRef = useRef<AudioBuffer[]>([]);
+  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const animationFrameRef = useRef<number>(0);
+  const playbackStartTimeRef = useRef<number>(0);
+  const accumulatedDurationRef = useRef<number>(0);
+  const isPlaybackInterruptedRef = useRef<boolean>(false);
+  const isCurrentlyPlayingRef = useRef<boolean>(false);
+
+  // --- Streaming Audio Control Functions ---
+  
+  /**
+   * Play next buffer in the queue
+   */
+  const playNextBuffer = useCallback((ctx: AudioContext) => {
+    if (playbackQueueRef.current.length === 0 || isPlaybackInterruptedRef.current) {
+      isCurrentlyPlayingRef.current = false;
+      setIsPlaying(false);
+      return;
+    }
+    
+    const nextBuffer = playbackQueueRef.current.shift()!;
+    const source = ctx.createBufferSource();
+    source.buffer = nextBuffer;
+    source.connect(ctx.destination);
+    
+    // Start playback
+    source.start(0);
+    currentSourceRef.current = source;
+    isCurrentlyPlayingRef.current = true;
+    
+    // When this buffer ends, play next
+    source.onended = () => {
+      if (!isPlaybackInterruptedRef.current) {
+        playNextBuffer(ctx);
+      } else {
+        isCurrentlyPlayingRef.current = false;
+        setIsPlaying(false);
+      }
+    };
+  }, []);
+  
+  /**
+   * Update current time animation loop
+   */
+  const startUpdateTimeAnimation = useCallback((ctx: AudioContext) => {
+    const updateTime = () => {
+      if (!isPlaybackInterruptedRef.current && ctx.state === "running") {
+        const elapsed = ctx.currentTime - playbackStartTimeRef.current;
+        setCurrentTime(Math.min(elapsed, accumulatedDurationRef.current));
+        animationFrameRef.current = requestAnimationFrame(updateTime);
+      }
+    };
+    animationFrameRef.current = requestAnimationFrame(updateTime);
+  }, []);
+  
+  /**
+   * Pause playback
+   */
+  const pausePlayback = useCallback(() => {
+    if (audioContextRef.current && audioContextRef.current.state === "running") {
+      audioContextRef.current.suspend();
+      isCurrentlyPlayingRef.current = false;
+      setIsPlaying(false);
+      cancelAnimationFrame(animationFrameRef.current);
+    }
+  }, []);
+  
+  /**
+   * Resume playback
+   */
+  const resumePlayback = useCallback(() => {
+    if (audioContextRef.current && audioContextRef.current.state === "suspended") {
+      audioContextRef.current.resume();
+      isCurrentlyPlayingRef.current = true;
+      setIsPlaying(true);
+      startUpdateTimeAnimation(audioContextRef.current);
+    }
+  }, [startUpdateTimeAnimation]);
+  
+  /**
+   * Stop streaming playback completely
+   */
+  const stopStreamingPlayback = useCallback(() => {
+    // Send stop message to worker to cancel generation
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: "stop-generation" });
+    }
+    
+    isPlaybackInterruptedRef.current = true;
+    isCurrentlyPlayingRef.current = false;
+    if (currentSourceRef.current) {
+      try {
+        currentSourceRef.current.stop();
+      } catch (e) {
+        // Already stopped
+      }
+      currentSourceRef.current = null;
+    }
+    if (audioContextRef.current) {
+      audioContextRef.current.close();
+      audioContextRef.current = null;
+    }
+    cancelAnimationFrame(animationFrameRef.current);
+    playbackQueueRef.current = [];
+    accumulatedDurationRef.current = 0;
+    setCurrentTime(0);
+    setTotalDuration(0);
+    setIsPlaying(false);
+    setIsStreaming(false);
+    setStreamingProgress(null);
+    setStreamingStartTime(null);
+  }, []);
+  
+  // Initialize worker on mount
+  useEffect(() => {
+    const worker = new Worker(
+      new URL("@/client/workers/audio-gen.worker.ts", import.meta.url),
+      { type: "module" },
+    );
+
+    worker.onmessage = (event: MessageEvent<WorkerResponse>) => {
+      const response = event.data;
+
+      switch (response.type) {
+        case "ready": {
+          setIsModelReady(true);
+          setDevice(response.device);
+          setGenerationState("idle");
+          setModelProgress(null);
+          console.log(`[audio-hook] Worker ready with ${response.device}`);
+          break;
+        }
+
+        case "progress": {
+          setModelProgress({
+            status: response.status,
+            progress: response.progress,
+            file: response.file,
+          });
+          break;
+        }
+
+        case "result": {
+          const pending = pendingRequests.get(response.id);
+          if (pending) {
+            pending.resolve({
+              audio: response.audio,
+              samplingRate: response.samplingRate,
+            });
+            pendingRequests.delete(response.id);
+          }
+          break;
+        }
+
+        case "audio-chunk": {
+          const { chunkIndex, totalChunks, audio, samplingRate, isLast, id } = response;
+          
+          // Initialize audio context if needed
+          if (!audioContextRef.current) {
+            audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
+            playbackStartTimeRef.current = audioContextRef.current.currentTime + 0.1;
+          }
+          
+          const ctx = audioContextRef.current;
+          if (ctx.state === "suspended") {
+            ctx.resume();
+          }
+          
+          // Create AudioBuffer
+          const buffer = ctx.createBuffer(1, audio.length, samplingRate);
+          buffer.getChannelData(0).set(audio);
+          
+          // Add to playback queue
+          playbackQueueRef.current.push(buffer);
+          
+          // Update total duration
+          accumulatedDurationRef.current += buffer.duration;
+          setTotalDuration(accumulatedDurationRef.current);
+          
+          // Update progress
+          setStreamingProgress({ current: chunkIndex + 1, total: totalChunks });
+          
+          // Start playback if not already playing
+          if (!isCurrentlyPlayingRef.current && !isPlaybackInterruptedRef.current) {
+            playNextBuffer(ctx);
+            setIsPlaying(true);
+            startUpdateTimeAnimation(ctx);
+          }
+          
+          // If last chunk, store audio data for download and resolve pending
+          if (isLast) {
+            // Store for later download
+            currentAudioDataRef.current = audio; // Store last chunk, full audio will be concatenated at end
+            
+            // Resolve pending request if any
+            const pending = pendingRequests.get(id);
+            if (pending) {
+              pending.resolve({
+                audio: audio,
+                samplingRate: samplingRate,
+              });
+              pendingRequests.delete(id);
+            }
+            
+            // Reset streaming state
+            setIsStreaming(false);
+            setStreamingProgress(null);
+          }
+          break;
+        }
+
+        case "error": {
+          console.error("[audio-hook] Error:", response.error);
+          setGenerationState("idle");
+          setError(response.error);
+          const pending = pendingRequests.get(response.id ?? "");
+          if (pending) {
+            pending.reject(new Error(response.error));
+            pendingRequests.delete(response.id ?? "");
+          }
+          break;
+        }
+      }
+    };
+
+    worker.onerror = (e) => {
+      console.error("[audio-hook] Worker error:", e);
+      setError("Worker failed. Please reload the page.");
+      setGenerationState("idle");
+    };
+
+    workerRef.current = worker;
+
+    // Initialize the pipeline with the current model and default voice
+    const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
+    worker.postMessage({ 
+      type: "init", 
+      modelId: selectedModel.id,
+      voice: voiceOrEmbeddings,
+      speakerEmbeddings: voiceOrEmbeddings
+    } as WorkerRequest);
+
+    return () => {
+      worker.postMessage({ type: "dispose" } as WorkerRequest);
+      worker.terminate();
+      workerRef.current = null;
+      pendingRequests.clear();
+    };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []); // Worker is created once and persists
+
+  // Re-initialize pipeline when model changes
+  useEffect(() => {
+    if (workerRef.current && generationState === "idle") {
+      setIsModelReady(false);
+      setGeneratedAudio(null);
+      setError(null);
+      setGenerationState("loading");
+      
+      const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
+      workerRef.current.postMessage({
+        type: "init",
+        modelId: selectedModel.id,
+        voice: voiceOrEmbeddings,
+        speakerEmbeddings: voiceOrEmbeddings,
+      } as WorkerRequest);
+    }
+  }, [selectedModel.id]);
+
+  /**
+   * Generate audio from text using the Web Worker.
+   */
+  const generate = useCallback(async (text: string): Promise<string> => {
+    if (!workerRef.current) {
+      throw new Error("Worker not initialized. Please wait or reload.");
+    }
+
+    if (!text.trim()) {
+      throw new Error("Please enter text to convert to speech.");
+    }
+
+    // Clean up previous audio URL
+    if (currentAudioUrlRef.current) {
+      revokeAudioUrl(currentAudioUrlRef.current);
+    }
+
+    setGenerationState("generating");
+    setModelProgress(null);
+    setError(null);
+    setGeneratedAudio(null);
+    setIsStreaming(true);
+    setStreamingProgress({ current: 0, total: 0 });
+    setStreamingStartTime(Date.now());
+    isPlaybackInterruptedRef.current = false;
+
+    try {
+      // Generate unique request ID
+      const id = `gen-${++requestCounter}`;
+
+      // Create a promise that resolves when worker responds
+      const result = await new Promise<AudioGenerationResult>((resolve, reject) => {
+        pendingRequests.set(id, { resolve, reject });
+
+        const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
+        console.log(`[audio-hook] Generating with voice: ${voiceOrEmbeddings}`);
+        workerRef.current!.postMessage(
+          {
+            type: "generate",
+            id,
+            text: text.trim(),
+            voice: voiceOrEmbeddings,
+            speakerEmbeddings: voiceOrEmbeddings,
+            streaming: true,
+          } as WorkerRequest,
+        );
+      });
+
+      // Convert audio to blob URL for playback
+      const audioUrl = audioToBlobUrl(result.audio, result.samplingRate);
+      currentAudioUrlRef.current = audioUrl;
+      currentAudioDataRef.current = result.audio;
+
+      setGeneratedAudio({
+        audioUrl,
+        samplingRate: result.samplingRate,
+        audioData: result.audio,
+      });
+
+      setIsModelReady(true);
+      setGenerationState("idle");
+
+      return audioUrl;
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : "Audio generation failed";
+      setError(errorMessage);
+      setGenerationState("idle");
+      throw err;
+    }
+  }, [selectedModel, selectedVoice]);
+
+  /**
+   * Handle model change from UI
+   */
+  const handleModelChange = useCallback((modelId: string) => {
+    const model = AVAILABLE_TTS_MODELS.find((m) => m.id === modelId);
+    if (model) {
+      setSelectedModel(model);
+      setSelectedVoice(model.voices[0]); // Reset to first voice of new model
+    }
+  }, []);
+
+  /**
+   * Handle voice change from UI
+   */
+  const handleVoiceChange = useCallback((voiceId: string) => {
+    const voice = selectedModel.voices.find((v) => v.id === voiceId);
+    if (voice) {
+      setSelectedVoice(voice);
+    }
+  }, [selectedModel]);
+
+  /**
+   * Clean up generated audio URL
+   */
+  const clearAudio = useCallback(() => {
+    if (currentAudioUrlRef.current) {
+      revokeAudioUrl(currentAudioUrlRef.current);
+      currentAudioUrlRef.current = null;
+    }
+    currentAudioDataRef.current = null;
+    setGeneratedAudio(null);
+  }, []);
+
+  /**
+   * Stop streaming playback and reset state
+   */
+  const stopStreaming = useCallback(() => {
+    stopStreamingPlayback();
+  }, [stopStreamingPlayback]);
+
+  /**
+   * Download generated audio as WAV file
+   */
+  const downloadAudio = useCallback(() => {
+    if (!generatedAudio || !currentAudioDataRef.current) return;
+    
+    downloadAudioUtil(
+      currentAudioDataRef.current, 
+      generatedAudio.samplingRate, 
+      `tts-audio-${Date.now()}.wav`
+    );
+  }, [generatedAudio]);
+
+  return {
+    // State
+    selectedModel,
+    selectedVoice,
+    generationState,
+    modelProgress,
+    generatedAudio,
+    error,
+    isModelReady,
+    device,
+    isStreaming,
+    streamingProgress,
+    isPlaying,
+    currentTime,
+    totalDuration,
+    streamingStartTime,
+
+    // Actions
+    generate,
+    handleModelChange,
+    handleVoiceChange,
+    clearAudio,
+    downloadAudio,
+    stopStreaming,
+    pausePlayback,
+    resumePlayback,
+  };
+}
+
+// ============================================================================
+// Helpers
+// ============================================================================
+
+// Re-export available models for convenience
+export { AVAILABLE_TTS_MODELS };
+export type { AudioGeneratorModel, AudioGenerationResult };
