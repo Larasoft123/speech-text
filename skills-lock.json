@@ -1,0 +1,10 @@
+{
+  "version": 1,
+  "skills": {
+    "transformers-js": {
+      "source": "huggingface/skills",
+      "sourceType": "github",
+      "computedHash": "50560ed4563843599a5d74b86c19d9a32acf00441f295935a676bc8c27756319"
+    }
+  }
+}
