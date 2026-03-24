@@ -64,47 +64,17 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   
   // Audio streaming state
   const audioContextRef = useRef<AudioContext | null>(null);
-  const playbackQueueRef = useRef<AudioBuffer[]>([]);
-  const currentSourceRef = useRef<AudioBufferSourceNode | null>(null);
+  const nextPlayTimeRef = useRef<number>(0);
+  const activeSourceNodesRef = useRef<AudioBufferSourceNode[]>([]);
   const animationFrameRef = useRef<number>(0);
   const playbackStartTimeRef = useRef<number>(0);
   const accumulatedDurationRef = useRef<number>(0);
   const isPlaybackInterruptedRef = useRef<boolean>(false);
-  const isCurrentlyPlayingRef = useRef<boolean>(false);
   const isPausedRef = useRef<boolean>(false);
 
   // --- Streaming Audio Control Functions ---
   
-  /**
-   * Play next buffer in the queue
-   */
-  const playNextBuffer = useCallback((ctx: AudioContext) => {
-    if (playbackQueueRef.current.length === 0 || isPlaybackInterruptedRef.current || isPausedRef.current) {
-      isCurrentlyPlayingRef.current = false;
-      setIsPlaying(false);
-      return;
-    }
-    
-    const nextBuffer = playbackQueueRef.current.shift()!;
-    const source = ctx.createBufferSource();
-    source.buffer = nextBuffer;
-    source.connect(ctx.destination);
-    
-    // Start playback
-    source.start(0);
-    currentSourceRef.current = source;
-    isCurrentlyPlayingRef.current = true;
-    
-    // When this buffer ends, play next
-    source.onended = () => {
-      if (!isPlaybackInterruptedRef.current && !isPausedRef.current) {
-        playNextBuffer(ctx);
-      } else {
-        isCurrentlyPlayingRef.current = false;
-        setIsPlaying(false);
-      }
-    };
-  }, []);
+  // --- Streaming Audio Control Functions ---
   
   /**
    * Update current time animation loop
@@ -121,7 +91,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   }, []);
   
   /**
-   * Pause playback - just suspend context, don't stop source
+   * Pause playback - just suspend context
    */
   const pausePlayback = useCallback(async () => {
     console.log("[audio-hook] Pause requested");
@@ -129,7 +99,6 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
       try {
         await audioContextRef.current.suspend();
         isPausedRef.current = true;
-        isCurrentlyPlayingRef.current = false;
         setIsPlaying(false);
         cancelAnimationFrame(animationFrameRef.current);
         console.log("[audio-hook] Paused successfully. Context state:", audioContextRef.current.state);
@@ -142,7 +111,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   }, []);
   
   /**
-   * Resume playback - just resume context, source will continue automatically
+   * Resume playback - just resume context
    */
   const resumePlayback = useCallback(async () => {
     console.log("[audio-hook] Resume requested. Context state:", audioContextRef.current?.state);
@@ -150,30 +119,16 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
       try {
         await audioContextRef.current.resume();
         isPausedRef.current = false;
+        setIsPlaying(true);
+        startUpdateTimeAnimation(audioContextRef.current);
         console.log("[audio-hook] Resumed successfully. Context state:", audioContextRef.current.state);
-        
-        // If there was a source playing, it will continue automatically
-        if (currentSourceRef.current) {
-          isCurrentlyPlayingRef.current = true;
-          setIsPlaying(true);
-          startUpdateTimeAnimation(audioContextRef.current);
-          console.log("[audio-hook] Continuing with existing source");
-        } else if (playbackQueueRef.current.length > 0) {
-          // If no source but there are buffers, start playing
-          console.log("[audio-hook] Starting playback from queue. Queue length:", playbackQueueRef.current.length);
-          playNextBuffer(audioContextRef.current);
-          setIsPlaying(true);
-          startUpdateTimeAnimation(audioContextRef.current);
-        } else {
-          console.log("[audio-hook] No source and empty queue. Nothing to play.");
-        }
       } catch (e) {
         console.error("Failed to resume audio context:", e);
       }
     } else {
       console.log("[audio-hook] Cannot resume: no audio context");
     }
-  }, [playNextBuffer, startUpdateTimeAnimation]);
+  }, [startUpdateTimeAnimation]);
   
   /**
    * Stop streaming playback completely
@@ -185,22 +140,24 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     }
     
     isPlaybackInterruptedRef.current = true;
-    isCurrentlyPlayingRef.current = false;
     isPausedRef.current = false;
-    if (currentSourceRef.current) {
+    
+    // Stop all active sources
+    activeSourceNodesRef.current.forEach(source => {
       try {
-        currentSourceRef.current.stop();
+        source.stop();
       } catch (e) {
         // Already stopped
       }
-      currentSourceRef.current = null;
-    }
+    });
+    activeSourceNodesRef.current = [];
+    
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
     cancelAnimationFrame(animationFrameRef.current);
-    playbackQueueRef.current = [];
+    nextPlayTimeRef.current = 0;
     accumulatedDurationRef.current = 0;
     setCurrentTime(0);
     setTotalDuration(0);
@@ -258,10 +215,11 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
           if (!audioContextRef.current) {
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             playbackStartTimeRef.current = audioContextRef.current.currentTime + 0.1;
+            nextPlayTimeRef.current = playbackStartTimeRef.current;
           }
           
           const ctx = audioContextRef.current;
-          if (ctx.state === "suspended") {
+          if (ctx.state === "suspended" && !isPausedRef.current) {
             ctx.resume();
           }
           
@@ -269,8 +227,17 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
           const buffer = ctx.createBuffer(1, audio.length, samplingRate);
           buffer.getChannelData(0).set(audio);
           
-          // Add to playback queue
-          playbackQueueRef.current.push(buffer);
+          // Create source and schedule playback
+          const source = ctx.createBufferSource();
+          source.buffer = buffer;
+          source.connect(ctx.destination);
+          
+          // Schedule to start at nextPlayTime
+          source.start(nextPlayTimeRef.current);
+          activeSourceNodesRef.current.push(source);
+          
+          // Update next play time for next chunk
+          nextPlayTimeRef.current += buffer.duration;
           
           // Update total duration
           accumulatedDurationRef.current += buffer.duration;
@@ -279,12 +246,21 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
           // Update progress
           setStreamingProgress({ current: chunkIndex + 1, total: totalChunks });
           
-          // Start playback if not already playing and not paused
-          if (!isCurrentlyPlayingRef.current && !isPlaybackInterruptedRef.current && !isPausedRef.current) {
-            playNextBuffer(ctx);
-            setIsPlaying(true);
-            startUpdateTimeAnimation(ctx);
-          }
+          // Set playing state
+          setIsPlaying(true);
+          
+          // Start animation loop for time updates
+          startUpdateTimeAnimation(ctx);
+          
+          // Remove source from array when it ends
+          source.onended = () => {
+            const index = activeSourceNodesRef.current.indexOf(source);
+            if (index > -1) {
+              activeSourceNodesRef.current.splice(index, 1);
+            }
+            // If no more active sources and not last chunk, maybe pause?
+            // For now, do nothing
+          };
           
           // If last chunk, store audio data for download and resolve pending
           if (isLast) {
