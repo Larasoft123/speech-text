@@ -13,6 +13,11 @@ interface DropZoneProps {
   className?: string;
 }
 
+// Estilos fuera del componente
+const CONTAINER_CLASS = "group relative overflow-hidden bg-surface-container-low/50 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-outline-variant/20 hover:border-primary/40 transition-all duration-500 cursor-pointer flex flex-col items-center justify-center p-16 shadow-glow-primary";
+
+const ICON_CLASS = "w-20 h-20 rounded-3xl bg-surface-container-high flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500";
+
 export function DropZone({
   title = "Drop audio or video files",
   description = "Supports MP3, WAV, MP4 up to 2GB",
@@ -39,35 +44,13 @@ export function DropZone({
     <div
       onDragOver={handleDragOver}
       onDrop={handleDrop}
-      className={`
-        group relative overflow-hidden
-        bg-surface-container-low/50
-        backdrop-blur-sm
-        rounded-[2rem]
-        border-2 border-dashed border-outline-variant/20
-        hover:border-primary/40
-        transition-all duration-500
-        cursor-pointer
-        flex flex-col items-center justify-center
-        p-16
-        shadow-glow-primary
-        ${className}
-      `}
+      className={`${CONTAINER_CLASS} ${className}`}
     >
       {/* Background Glow */}
       <div className="absolute inset-0 bg-gradient-radial from-primary/5 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-500" />
 
       {/* Icon */}
-      <div
-        className="
-          w-20 h-20 rounded-3xl
-          bg-surface-container-high
-          flex items-center justify-center
-          mb-6
-          group-hover:scale-110
-          transition-transform duration-500
-        "
-      >
+      <div className={ICON_CLASS}>
         <Icon name="cloud_upload" size="2xl" color="primary" />
       </div>
 

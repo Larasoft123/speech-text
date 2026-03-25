@@ -34,10 +34,7 @@ export function LandingNav({
             <a
               key={`landing-nav-${link.href}-${index}`}
               href={link.href}
-              className="
-                text-slate-400 font-['Inter'] text-sm tracking-tight
-                hover:text-white transition-colors duration-300
-              "
+              className="text-slate-400 font-['Inter'] text-sm tracking-tight hover:text-white transition-colors duration-300"
             >
               {link.label}
             </a>
@@ -48,22 +45,13 @@ export function LandingNav({
         <div className="flex items-center space-x-4">
           <button
             onClick={onLoginClick}
-            className="
-              text-slate-400 font-['Inter'] text-sm tracking-tight
-              hover:text-white transition-colors duration-300
-              scale-95 duration-200
-            "
+            className="text-slate-400 font-['Inter'] text-sm tracking-tight hover:text-white transition-colors scale-95 duration-200"
           >
             Login
           </button>
           <button
             onClick={onGetStartedClick}
-            className="
-              bg-primary-container text-on-primary-container
-              px-5 py-2 rounded-lg
-              font-['Inter'] text-sm tracking-tight font-semibold
-              hover:opacity-90 transition-all scale-95 duration-200
-            "
+            className="bg-primary-container text-on-primary-container px-5 py-2 rounded-lg font-['Inter'] text-sm tracking-tight font-semibold hover:opacity-90 transition-all scale-95 duration-200"
           >
             Get Started
           </button>

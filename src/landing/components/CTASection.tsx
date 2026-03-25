@@ -15,14 +15,7 @@ export function CTASection({
 }: CTASectionProps) {
   return (
     <section className="max-w-7xl mx-auto px-8 py-32">
-      <div
-        className="
-          relative overflow-hidden
-          bg-surface-container
-          rounded-[2rem] p-16 md:p-24
-          text-center
-        "
-      >
+      <div className="relative overflow-hidden bg-surface-container rounded-[2rem] p-16 md:p-24 text-center">
         {/* Background Glow */}
         <div className="absolute inset-0 ethereal-glow opacity-40" />
 
@@ -38,15 +31,7 @@ export function CTASection({
           </p>
 
           {/* CTA Button */}
-          <button
-            onClick={onButtonClick}
-            className="
-              bg-white text-surface-dim
-              px-12 py-5 rounded-full
-              font-black text-lg
-              hover:scale-105 transition-transform
-            "
-          >
+          <button onClick={onButtonClick} className="bg-white text-surface-dim px-12 py-5 rounded-full font-black text-lg hover:scale-105 transition-transform">
             {buttonLabel}
           </button>
         </div>

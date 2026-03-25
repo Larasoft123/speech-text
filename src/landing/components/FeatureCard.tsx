@@ -57,17 +57,7 @@ export function FeatureCard({
   return (
     <div className={`space-y-6 group ${className}`}>
       {/* Icon */}
-      <div
-        className={`
-          w-12 h-12 rounded-xl
-          bg-${config.bgColor}
-          flex items-center justify-center
-          text-${config.iconColor}
-          group-hover:bg-${config.hoverBgColor}
-          group-hover:text-${config.hoverTextColor}
-          transition-all duration-500
-        `}
-      >
+      <div className={`w-12 h-12 rounded-xl bg-${config.bgColor} flex items-center justify-center text-${config.iconColor} group-hover:bg-${config.hoverBgColor} group-hover:text-${config.hoverTextColor} transition-all duration-500`}>
         <span
           className="material-symbols-outlined"
           style={{ fontVariationSettings: "'FILL' 1" }}
@@ -104,14 +94,7 @@ export function TranslationPreview() {
   return (
     <div className="flex flex-wrap gap-2">
       {languages.map((lang) => (
-        <span
-          key={lang}
-          className="
-            px-3 py-1 rounded-full
-            bg-surface-container
-            text-[10px] uppercase tracking-wider font-bold
-          "
-        >
+        <span key={lang} className="px-3 py-1 rounded-full bg-surface-container text-[10px] uppercase tracking-wider font-bold">
           {lang}
         </span>
       ))}
@@ -122,13 +105,7 @@ export function TranslationPreview() {
 export function TTSPreview() {
   return (
     <div className="h-8 bg-surface-container rounded-lg relative overflow-hidden">
-      <div
-        className="
-          absolute inset-0
-          bg-gradient-to-r from-tertiary/20 to-transparent w-full
-          animate-[shimmer_2s_infinite]
-        "
-      />
+      <div className="absolute inset-0 bg-gradient-to-r from-tertiary/20 to-transparent w-full animate-[shimmer_2s_infinite]" />
     </div>
   );
 }

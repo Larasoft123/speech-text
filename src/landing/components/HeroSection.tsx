@@ -28,12 +28,7 @@ export function WaveformViz({
   className = "",
 }: WaveformVizProps) {
   return (
-    <div
-      className={`
-        flex items-end space-x-1.5 h-32
-        ${className}
-      `}
-    >
+    <div className={`flex items-end space-x-1.5 h-32 ${className}`}>
       {bars.map((bar, index) => (
         <div
           key={`waveform-${index}`}
@@ -63,14 +58,7 @@ export function UIPreviewCard({
   className = "",
 }: UIPreviewCardProps) {
   return (
-    <div
-      className={`
-        glass-panel p-4 rounded-xl
-        shadow-2xl scale-90
-        border border-outline-variant/20
-        ${className}
-      `}
-    >
+    <div className={`glass-panel p-4 rounded-xl shadow-2xl scale-90 border border-outline-variant/20 ${className}`}>
       <div className="flex items-center space-x-3 mb-2">
         <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
         <span className="text-[10px] uppercase tracking-widest font-bold opacity-60">
@@ -116,14 +104,7 @@ export function HeroSection({
         {/* Left Content */}
         <div className="lg:col-span-7 z-10">
           {/* Title */}
-          <h1
-            className="
-              text-5xl lg:text-7xl font-extrabold tracking-tighter
-              leading-[1.05] mb-8
-              bg-gradient-to-br from-white via-white to-slate-500
-              bg-clip-text text-transparent
-            "
-          >
+          <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tighter leading-[1.05] mb-8 bg-gradient-to-br from-white via-white to-slate-500 bg-clip-text text-transparent">
             {title}
           </h1>
 
@@ -134,25 +115,10 @@ export function HeroSection({
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap gap-6">
-            <button
-              onClick={onPrimaryClick}
-              className="
-                bg-gradient-to-r from-primary-container to-inverse-primary
-                text-on-primary-container
-                px-8 py-4 rounded-xl font-bold tracking-tight
-                hover:scale-105 transition-transform
-              "
-            >
+            <button onClick={onPrimaryClick} className="bg-gradient-to-r from-primary-container to-inverse-primary text-on-primary-container px-8 py-4 rounded-xl font-bold tracking-tight hover:scale-105 transition-transform">
               {primaryCtaLabel}
             </button>
-            <button
-              onClick={onSecondaryClick}
-              className="
-                flex items-center space-x-3
-                bg-surface-container-highest px-8 py-4 rounded-xl
-                font-semibold hover:bg-surface-bright transition-colors
-              "
-            >
+            <button onClick={onSecondaryClick} className="flex items-center space-x-3 bg-surface-container-highest px-8 py-4 rounded-xl font-semibold hover:bg-surface-bright transition-colors">
               <span className="material-symbols-outlined text-xl">play_circle</span>
               <span>{secondaryCtaLabel}</span>
             </button>
@@ -162,13 +128,7 @@ export function HeroSection({
         {/* Right Visual */}
         <div className="lg:col-span-5 relative">
           {/* Main Circle */}
-          <div
-            className="
-              aspect-square glass-panel rounded-full
-              flex items-center justify-center p-8
-              relative overflow-hidden group
-            "
-          >
+          <div className="aspect-square glass-panel rounded-full flex items-center justify-center p-8 relative overflow-hidden group">
             <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-secondary/10 opacity-50" />
             <WaveformViz />
           </div>
