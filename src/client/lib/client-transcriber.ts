@@ -40,12 +40,4 @@ export const AVAILABLE_MODELS: WhisperModel[] = [
     description: "Better accuracy, slower",
     languages: ["en"]
   },
-  {
-    id: "Xenova/whisper-medium.en",
-    label: "Medium",
-    size: "~769MB",
-    description: "High accuracy, requires WebGPU",
-    requiresWebGPU: true,
-    languages: ["en"]
-  },
 ];
