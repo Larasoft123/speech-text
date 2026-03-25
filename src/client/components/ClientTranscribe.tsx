@@ -13,11 +13,23 @@ import { LanguageSelect, type LanguageCode } from "@/shared/components/LanguageS
 
 type TabType = "transcribe" | "generate";
 
+
+const FEATURE_TAGS = ["No server required", "100% private", "Works offline (after first load)", "Record or upload audio"];
+
+
+const TAB_ACTIVE_CLASS = "bg-primary text-on-primary";
+const TAB_INACTIVE_CLASS = "text-slate-400 hover:text-slate-200";
+const GRANULARITY_ACTIVE_CLASS = "bg-primary/10 border-primary/30 text-primary";
+const GRANULARITY_INACTIVE_CLASS = "bg-surface-container-lowest border-outline-variant/10 text-slate-400 hover:text-slate-200 hover:border-outline-variant/30";
+
 export function ClientTranscribe() {
   const [activeTab, setActiveTab] = useState<TabType>("transcribe");
   const [selectedModel, setSelectedModel] = useState<WhisperModel>(AVAILABLE_MODELS[2]);
   const [timestampGranularity, setTimestampGranularity] = useState<TimestampGranularity>("word");
   const [language, setLanguage] = useState<LanguageCode>(selectedModel.languages[0]);
+
+  
+  const { label: modelLabel, size: modelSize, languages: modelLanguages } = selectedModel;
 
   const {
     recorderState,
@@ -37,6 +49,12 @@ export function ClientTranscribe() {
     isStreaming,
   } = useTranscription(selectedModel, timestampGranularity, language);
 
+  const isRecording = recorderState === "recording";
+  const isProcessing = recorderState === "processing";
+  const isIdle = recorderState === "idle";
+  const isTranscribeTab = activeTab === "transcribe";
+  const isGenerateTab = activeTab === "generate";
+
   const handleModelChange = (modelId: string) => {
     const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
     if (!model) return;
@@ -47,25 +65,28 @@ export function ClientTranscribe() {
     }
   };
 
+  const tabButtonClass = (tab: TabType) =>
+    `px-6 py-3 rounded-lg text-sm font-semibold transition-all ${activeTab === tab ? TAB_ACTIVE_CLASS : TAB_INACTIVE_CLASS}`;
+
   return (
     <div className="min-h-screen bg-surface flex flex-col">
       {/* Header */}
       <header className="flex items-center justify-between px-8 h-16 bg-surface/80 backdrop-blur-xl border-b border-outline-variant/10">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-primary">
-            {activeTab === "transcribe" ? "mic" : "volume_up"}
+            {isTranscribeTab ? "mic" : "volume_up"}
           </span>
           <span className="text-lg font-bold tracking-tight text-slate-100">
-            {activeTab === "transcribe" ? "Client-Side Transcription" : "Audio Generation"}
+            {isTranscribeTab ? "Client-Side Transcription" : "Audio Generation"}
           </span>
           <span className="px-2 py-0.5 rounded-full bg-secondary/10 text-secondary text-[10px] font-bold uppercase tracking-widest">
             Browser Inference
           </span>
         </div>
         <div className="flex items-center gap-3 text-[10px] text-slate-500">
-          <span>{selectedModel.label}</span>
+          <span>{modelLabel}</span>
           <span>•</span>
-          <span>{selectedModel.size}</span>
+          <span>{modelSize}</span>
         </div>
       </header>
 
@@ -74,11 +95,7 @@ export function ClientTranscribe() {
         <div className="flex gap-2 p-1 bg-surface-container-low rounded-xl">
           <button
             onClick={() => setActiveTab("transcribe")}
-            className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === "transcribe"
-                ? "bg-primary text-on-primary"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className={tabButtonClass("transcribe")}
           >
             <span className="flex items-center gap-2">
               <span className="material-symbols-outlined text-lg">mic</span>
@@ -87,11 +104,7 @@ export function ClientTranscribe() {
           </button>
           <button
             onClick={() => setActiveTab("generate")}
-            className={`px-6 py-3 rounded-lg text-sm font-semibold transition-all ${
-              activeTab === "generate"
-                ? "bg-primary text-on-primary"
-                : "text-slate-400 hover:text-slate-200"
-            }`}
+            className={tabButtonClass("generate")}
           >
             <span className="flex items-center gap-2">
               <span className="material-symbols-outlined text-lg">volume_up</span>
@@ -103,7 +116,7 @@ export function ClientTranscribe() {
 
       <main className="flex-1 flex flex-col items-center justify-center px-8 py-16">
         <div className="w-full max-w-2xl space-y-8">
-          {activeTab === "transcribe" ? (
+          {isTranscribeTab ? (
             <>
               {/* Info Card */}
               <div className="bg-surface-container-low/50 backdrop-blur-sm rounded-2xl p-6 border border-outline-variant/10">
@@ -115,7 +128,7 @@ export function ClientTranscribe() {
                   The model (~150MB) downloads once and is cached for future sessions.
                 </p>
                 <div className="mt-4 flex flex-wrap gap-2">
-                  {["No server required", "100% private", "Works offline (after first load)", "Record or upload audio"].map((tag) => (
+                  {FEATURE_TAGS.map((tag) => (
                     <span
                       key={tag}
                       className="px-3 py-1 rounded-full bg-secondary/10 text-secondary text-xs font-medium"
@@ -142,7 +155,7 @@ export function ClientTranscribe() {
                     <select
                       value={selectedModel.id}
                       onChange={(e) => handleModelChange(e.target.value)}
-                      disabled={recorderState === "processing"}
+                      disabled={isProcessing}
                       className="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                     >
                       {AVAILABLE_MODELS.map((m) => (
@@ -155,10 +168,10 @@ export function ClientTranscribe() {
 
                   {/* Language Selector */}
                   <LanguageSelect
-                    languages={selectedModel.languages}
+                    languages={modelLanguages}
                     value={language}
                     onChange={setLanguage}
-                    disabled={recorderState === "processing"}
+                    disabled={isProcessing}
                   />
 
                   {/* Timestamp Granularity Selector */}
@@ -169,16 +182,16 @@ export function ClientTranscribe() {
                     <div className="grid grid-cols-2 gap-2">
                       <button
                         onClick={() => setTimestampGranularity("word")}
-                        disabled={recorderState === "processing"}
-                        className={`py-3 px-4 rounded-xl text-xs font-semibold transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${timestampGranularity === "word" ? "bg-primary/10 border-primary/30 text-primary" : "bg-surface-container-lowest border-outline-variant/10 text-slate-400 hover:text-slate-200 hover:border-outline-variant/30"}`}
+                        disabled={isProcessing}
+                        className={`py-3 px-4 rounded-xl text-xs font-semibold transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${timestampGranularity === "word" ? GRANULARITY_ACTIVE_CLASS : GRANULARITY_INACTIVE_CLASS}`}
                       >
                         <span className="material-symbols-outlined text-base block mb-1">text_fields</span>
                         Word
                       </button>
                       <button
                         onClick={() => setTimestampGranularity("phrase")}
-                        disabled={recorderState === "processing"}
-                        className={`py-3 px-4 rounded-xl text-xs font-semibold transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${timestampGranularity === "phrase" ? "bg-primary/10 border-primary/30 text-primary" : "bg-surface-container-lowest border-outline-variant/10 text-slate-400 hover:text-slate-200 hover:border-outline-variant/30"}`}
+                        disabled={isProcessing}
+                        className={`py-3 px-4 rounded-xl text-xs font-semibold transition-all border disabled:opacity-50 disabled:cursor-not-allowed ${timestampGranularity === "phrase" ? GRANULARITY_ACTIVE_CLASS : GRANULARITY_INACTIVE_CLASS}`}
                       >
                         <span className="material-symbols-outlined text-base block mb-1">segment</span>
                         Phrase
@@ -192,7 +205,7 @@ export function ClientTranscribe() {
               <div className="bg-surface-container-lowest/40 backdrop-blur-md rounded-[2rem] p-10 border border-outline-variant/10 space-y-8">
                 {/* Status / Waveform */}
                 <div className="flex flex-col items-center gap-6">
-                  {recorderState === "recording" ? (
+                  {isRecording ? (
                     <>
                       {/* Animated waveform */}
                       <div className="flex items-center gap-2 h-16">
@@ -211,7 +224,7 @@ export function ClientTranscribe() {
                         <span className="text-sm font-medium">Recording...</span>
                       </div>
                     </>
-                  ) : recorderState === "processing" ? (
+                  ) : isProcessing ? (
                     <>
                       {/* Loading spinner */}
                       <div className="w-16 h-16 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin" />
@@ -233,7 +246,7 @@ export function ClientTranscribe() {
                 </div>
 
                 {/* Progress bars */}
-                {modelProgress && recorderState === "processing" && (
+                {modelProgress && isProcessing ? (
                   <div className="space-y-3">
                     {fileProgress.length > 0 ? (
                       fileProgress.map((fp) => (
@@ -251,10 +264,10 @@ export function ClientTranscribe() {
                       </p>
                     )}
                   </div>
-                )}
+                ) : null}
 
                 {/* Live Transcription Streaming */}
-                {isStreaming && streamingText && (
+                {isStreaming && streamingText ? (
                   <div className="w-full bg-surface/50 backdrop-blur-sm rounded-2xl p-6 border border-primary/20 shadow-inner animate-in fade-in zoom-in-95 duration-300">
                     <div className="flex items-center gap-2 mb-3">
                       <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
@@ -264,20 +277,20 @@ export function ClientTranscribe() {
                       {streamingText}<span className="inline-block w-1.5 h-4 ml-1 bg-primary/70 animate-pulse align-middle" />
                     </p>
                   </div>
-                )}
+                ) : null}
 
                 {/* Record/Stop button */}
                 <div className="flex flex-col items-center gap-4">
                   {/* Selected file name */}
-                  {selectedFileName && (
+                  {selectedFileName ? (
                     <div className="flex items-center gap-2 px-4 py-2 rounded-xl bg-surface-container text-sm text-slate-300 max-w-xs truncate">
                       <span className="material-symbols-outlined text-base text-secondary">audio_file</span>
                       <span className="truncate">{selectedFileName}</span>
                     </div>
-                  )}
+                  ) : null}
 
                   <div className="flex items-center gap-3 w-full max-w-md">
-                    {recorderState === "recording" ? (
+                    {isRecording ? (
                       <button
                         onClick={stopRecording}
                         className="flex-1 py-4 bg-error/10 hover:bg-error/20 text-error rounded-2xl flex items-center justify-center gap-3 transition-all font-bold border border-error/20"
@@ -289,7 +302,7 @@ export function ClientTranscribe() {
                       <>
                         <button
                           onClick={startRecording}
-                          disabled={recorderState === "processing"}
+                          disabled={isProcessing}
                           className="flex-1 py-4 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-2xl flex items-center justify-center gap-2 font-bold shadow-lg shadow-primary/10 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Record from Microphone"
                         >
@@ -299,7 +312,7 @@ export function ClientTranscribe() {
 
                         <button
                           onClick={startSystemRecording}
-                          disabled={recorderState === "processing"}
+                          disabled={isProcessing}
                           className="flex-1 py-4 bg-surface-container-high hover:bg-surface-bright rounded-2xl flex items-center justify-center gap-2 text-slate-200 font-bold transition-all border border-outline-variant/10 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Capture Tab/System Audio"
                         >
@@ -309,7 +322,7 @@ export function ClientTranscribe() {
                         
                         <button
                           onClick={() => fileInputRef.current?.click()}
-                          disabled={recorderState === "processing"}
+                          disabled={isProcessing}
                           className="py-4 px-5 bg-surface-container-high hover:bg-surface-bright rounded-2xl flex items-center justify-center gap-2 text-slate-300 transition-all border border-outline-variant/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed"
                           title="Upload audio file"
                         >
@@ -329,22 +342,22 @@ export function ClientTranscribe() {
                   />
 
                   {/* Format hint */}
-                  {recorderState === "idle" && (
+                  {isIdle ? (
                     <p className="text-[10px] text-slate-600 text-center">
                       Supports MP3, WAV, WebM, OGG, FLAC, AAC
                     </p>
-                  )}
+                  ) : null}
                 </div>
               </div>
 
               {/* Transcription result */}
-              {transcription && (
+              {transcription ? (
                 <TranscriptionDisplay
                   result={transcription}
                   granularity={timestampGranularity}
                   onDownload={downloadTranscription}
                 />
-              )}
+              ) : null}
             </>
           ) : (
             /* Generate Tab */
@@ -352,7 +365,7 @@ export function ClientTranscribe() {
           )}
 
           {/* Error */}
-          {error && (
+          {error ? (
             <div className="bg-error/10 rounded-2xl p-6 border border-error/20">
               <div className="flex items-center gap-3 mb-2">
                 <span className="material-symbols-outlined text-error text-xl">error</span>
@@ -360,7 +373,7 @@ export function ClientTranscribe() {
               </div>
               <p className="text-sm text-slate-300">{error}</p>
             </div>
-          )}
+          ) : null}
         </div>
       </main>
     </div>
