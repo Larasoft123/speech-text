@@ -1,19 +1,19 @@
 "use client";
 
-import { DashboardLayout } from "@/components/layout";
-import { DropZone } from "@/components/dashboard/DropZone";
-import { LiveSessionCard } from "@/components/dashboard/LiveSessionCard";
-import { ProjectGrid } from "@/components/dashboard";
+import { DashboardLayout } from "@/layout/components/DashboardLayout";
+import { DropZone } from "@/dashboard/components/DropZone";
+import { LiveSessionCard } from "@/dashboard/components/LiveSessionCard";
+import { ProjectGrid } from "@/dashboard/components/ProjectGrid";
 import type { NavItem, ProjectMetadata } from "@/shared/types";
 
-// Sample data for demonstration
-const navLinks = [
+// Datos fuera del componente (server-serialization optimization)
+const NAV_LINKS = [
   { label: "Projects", href: "#", active: true },
   { label: "Library", href: "#" },
   { label: "Automation", href: "#" },
 ];
 
-const sideNavItems: NavItem[] = [
+const SIDE_NAV_ITEMS: NavItem[] = [
   { label: "Dashboard", href: "#", icon: "dashboard" },
   { label: "Transcriptions", href: "#", icon: "description" },
   { label: "Translations", href: "#", icon: "translate" },
@@ -21,19 +21,19 @@ const sideNavItems: NavItem[] = [
   { label: "Archive", href: "#", icon: "inventory_2" },
 ];
 
-const sideNavFooterItems: NavItem[] = [
+const SIDE_NAV_FOOTER_ITEMS: NavItem[] = [
   { label: "Help Center", href: "#", icon: "help" },
   { label: "Account", href: "#", icon: "account_circle" },
 ];
 
-const footerLinks = [
+const FOOTER_LINKS = [
   { label: "Status", href: "#" },
   { label: "Privacy", href: "#" },
   { label: "Terms", href: "#" },
   { label: "API", href: "#" },
 ];
 
-const sampleProjects: ProjectMetadata[] = [
+const SAMPLE_PROJECTS: ProjectMetadata[] = [
   {
     title: "Executive Board Meeting.mp3",
     type: "audio",
@@ -64,14 +64,14 @@ export default function DashboardPage() {
   return (
     <DashboardLayout
       logo="AetherVoice"
-      navLinks={navLinks}
+      navLinks={NAV_LINKS}
       userAvatar="https://i.pravatar.cc/150?img=10"
       sideNavTitle="Editorial Lab"
       sideNavSubtitle="Premium Tier"
-      sideNavItems={sideNavItems}
+      sideNavItems={SIDE_NAV_ITEMS}
       sideNavActiveHref="#"
-      sideNavFooterItems={sideNavFooterItems}
-      footerLinks={footerLinks}
+      sideNavFooterItems={SIDE_NAV_FOOTER_ITEMS}
+      footerLinks={FOOTER_LINKS}
     >
       <div className="max-w-6xl mx-auto px-12 py-12">
         {/* Hero Section */}
@@ -111,7 +111,7 @@ export default function DashboardPage() {
         <ProjectGrid
           title="Recent Workspace"
           subtitle="Pick up where you left off"
-          projects={sampleProjects}
+          projects={SAMPLE_PROJECTS}
         />
       </div>
     </DashboardLayout>
