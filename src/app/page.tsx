@@ -1,44 +1,50 @@
 "use client";
 
-import {
-  LandingNav,
-  HeroSection,
-  FeaturesSection,
-  StepsSection,
-  CTASection,
-  LandingFooter,
-} from "@/landing/components";
+import { LandingNav } from "@/landing/components/LandingNav";
+import { HeroSection } from "@/landing/components/HeroSection";
+import { FeaturesSection } from "@/landing/components/FeatureCard";
+import { StepsSection } from "@/landing/components/StepsSection";
+import { CTASection } from "@/landing/components/CTASection";
+import { LandingFooter } from "@/landing/components/LandingFooter";
+
+// Datos fuera del componente para evitar recreacion en cada render
+const NAV_LINKS = [
+  { label: "Features", href: "#features" },
+  { label: "Pricing", href: "#pricing" },
+  { label: "About", href: "#about" },
+];
+
+const FOOTER_LINKS = [
+  { label: "Terms of Service", href: "#" },
+  { label: "Privacy Policy", href: "#" },
+  { label: "API Documentation", href: "#" },
+  { label: "Contact Support", href: "#" },
+  { label: "Status", href: "#" },
+];
+
+// Handlers estables
+const handleLoginClick = () => console.log("Login clicked");
+const handleGetStartedClick = () => console.log("Get Started clicked");
+const handlePrimaryClick = () => console.log("Start Recording clicked");
+const handleSecondaryClick = () => console.log("Watch Demo clicked");
+const handleButtonClick = () => console.log("Launch clicked");
 
 export default function LandingPage() {
-  const navLinks = [
-    { label: "Features", href: "#features" },
-    { label: "Pricing", href: "#pricing" },
-    { label: "About", href: "#about" },
-  ];
-
-  const footerLinks = [
-    { label: "Terms of Service", href: "#" },
-    { label: "Privacy Policy", href: "#" },
-    { label: "API Documentation", href: "#" },
-    { label: "Contact Support", href: "#" },
-    { label: "Status", href: "#" },
-  ];
-
   return (
     <div className="min-h-screen bg-surface">
       {/* Navigation */}
       <LandingNav
-        navLinks={navLinks}
-        onLoginClick={() => console.log("Login clicked")}
-        onGetStartedClick={() => console.log("Get Started clicked")}
+        navLinks={NAV_LINKS}
+        onLoginClick={handleLoginClick}
+        onGetStartedClick={handleGetStartedClick}
       />
 
       {/* Main Content */}
       <main className="relative pt-32 overflow-hidden">
         {/* Hero Section */}
         <HeroSection
-          onPrimaryClick={() => console.log("Start Recording clicked")}
-          onSecondaryClick={() => console.log("Watch Demo clicked")}
+          onPrimaryClick={handlePrimaryClick}
+          onSecondaryClick={handleSecondaryClick}
         />
 
         {/* Features Section */}
@@ -50,11 +56,11 @@ export default function LandingPage() {
         <StepsSection />
 
         {/* CTA Section */}
-        <CTASection onButtonClick={() => console.log("Launch clicked")} />
+        <CTASection onButtonClick={handleButtonClick} />
       </main>
 
       {/* Footer */}
-      <LandingFooter links={footerLinks} />
+      <LandingFooter links={FOOTER_LINKS} />
     </div>
   );
 }
