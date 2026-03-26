@@ -166,7 +166,7 @@ export function TranscriptionColumn({
             />
             <IconSelect
               label="Granularity"
-              icon="clock"
+              icon="select_all"
               items={availableGranularities.map(gran => ({ value: gran, label: gran }))}
               value={timestampGranularity}
               onChange={onGranularityChange}
