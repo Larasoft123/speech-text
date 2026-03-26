@@ -50,3 +50,4 @@ next-env.d.ts
 
 # other files
 /.agents/skills/react-19
+/.agents/skills/remotion-best-practices

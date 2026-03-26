@@ -20,12 +20,13 @@ function getTranscriber(): Promise<AutomaticSpeechRecognitionPipeline> {
     [globalKey]?: Promise<AutomaticSpeechRecognitionPipeline>;
   };
 
-  if (!g[globalKey]) {
-    console.log(`[transcriber] Loading model: ${MODEL_ID}`);
+   if (!g[globalKey]) {
+     console.log(`[transcriber] Loading model: ${MODEL_ID}`);
 
-    g[globalKey] = pipeline("automatic-speech-recognition", MODEL_ID, {
-      dtype: "q8",
-    });
+     const pipelinePromise = pipeline("automatic-speech-recognition", MODEL_ID, {
+       dtype: "q8" as const,
+     });
+     g[globalKey] = pipelinePromise;
 
     g[globalKey].then(() => {
       console.log("[transcriber] Model loaded and ready");

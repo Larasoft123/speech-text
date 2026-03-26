@@ -1,5 +1,8 @@
 export type { TranscriptionResult, TranscriptionOptions } from "@/lib/types";
 import { LANGUAGES } from "@/lib/types";
+
+
+
 export type TimestampGranularity = "word" | "phrase";
 
 export interface WhisperModel {
@@ -9,6 +12,8 @@ export interface WhisperModel {
   description: string;
   requiresWebGPU?: boolean;
   languages: (keyof typeof LANGUAGES)[]
+  timestampGranularity: TimestampGranularity[];
+
 }
 
 export const AVAILABLE_MODELS: WhisperModel[] = [
@@ -17,27 +22,34 @@ export const AVAILABLE_MODELS: WhisperModel[] = [
     label: "Tiny",
     size: "~39MB",
     description: "Fastest, lower accuracy",
-    languages: ["en"]
+    languages: ["en"],
+    timestampGranularity: ["word"]
+
   },
   {
     id: "Xenova/whisper-base.en",
     label: "Base",
     size: "~74MB",
     description: "Balanced speed & accuracy",
-    languages: ["en"]
+    languages: ["en"],
+    timestampGranularity: ["word", "phrase"]
+
   },
   {
     id: "onnx-community/whisper-base_timestamped",
     label: "Base (Timestamped)",
     size: "~150MB",
     description: "Optimized for timestamps",
-    languages: ["en", "es", "fr", "it"]
+    languages: ["en", "es", "fr", "it"],
+    timestampGranularity: ["word", "phrase"]
   },
   {
     id: "Xenova/whisper-small.en",
     label: "Small",
     size: "~243MB",
     description: "Better accuracy, slower",
-    languages: ["en"]
+    languages: ["en"],
+    timestampGranularity: ["word"]
+
   },
 ];

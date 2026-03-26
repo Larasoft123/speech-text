@@ -40,6 +40,7 @@ export function useTranscription(
   model: WhisperModel,
   granularity: TimestampGranularity,
   language: string = "en",
+  autoInit: boolean = false, // If false, worker initializes only on first interaction (lazy loading)
 ) {
   const [recorderState, setRecorderState] = useState<RecorderState>("idle");
   const [modelProgress, setModelProgress] = useState<{ status: string; file?: string; progress?: number } | null>(null);
@@ -74,8 +75,10 @@ export function useTranscription(
     stopRecording: stopMicrophoneRecording,
   } = useMicrophoneRecorder();
 
-  // Initialize worker on mount
-  useEffect(() => {
+  // Initialize worker on demand
+  const initWorker = () => {
+    if (workerRef.current) return;
+    
     const worker = new Worker(
       new URL("@/client/workers/whisper.worker.ts", import.meta.url),
       { type: "module" },
@@ -154,15 +157,24 @@ export function useTranscription(
 
     // Initialize the pipeline with the current model
     worker.postMessage({ type: "init", modelId: model.id } satisfies WorkerRequest);
+  };
+
+  // Initialize worker on mount if autoInit is true
+  useEffect(() => {
+    if (autoInit) {
+      initWorker();
+    }
 
     return () => {
-      worker.postMessage({ type: "dispose" } satisfies WorkerRequest);
-      worker.terminate();
-      workerRef.current = null;
-      pendingRequests.clear();
+      if (workerRef.current) {
+        workerRef.current.postMessage({ type: "dispose" } satisfies WorkerRequest);
+        workerRef.current.terminate();
+        workerRef.current = null;
+        pendingRequests.clear();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Worker is created once and persists
+  }, [autoInit]); // Re-run if autoInit changes
 
   // Re-initialize pipeline when model changes
   useEffect(() => {
@@ -357,12 +369,7 @@ export function useTranscription(
     stopRecording,
     handleFileChange,
     downloadTranscription,
+    initWorker, // NEW: manually initialize worker
   };
 }
 
-export { AVAILABLE_MODELS };
-export type {
-  WhisperModel,
-  TimestampGranularity,
-  TranscriptionResult,
-} from "@/client/lib/client-transcriber";

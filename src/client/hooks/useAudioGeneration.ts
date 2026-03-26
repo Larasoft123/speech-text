@@ -4,7 +4,7 @@
  * Automatically detects WebGPU with WASM fallback.
  */
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect } from "react";
 import { audioToBlobUrl, revokeAudioUrl, downloadAudio as downloadAudioUtil } from "@/client/lib/client-audio-utils";
 import {
   AVAILABLE_TTS_MODELS,
@@ -40,12 +40,12 @@ const pendingRequests = new Map<string, PendingRequest>();
 // Hook
 // ============================================================================
 
-export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
+export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit: boolean = false) { // autoInit: false = lazy loading on first interaction
   const defaultModel = initialModel ?? AVAILABLE_TTS_MODELS[0];
   
   const [selectedModel, setSelectedModel] = useState<AudioGeneratorModel>(defaultModel);
   const [selectedVoice, setSelectedVoice] = useState<Voice>(defaultModel.voices[0]);
-  const [generationState, setGenerationState] = useState<GenerationState>("loading");
+  const [generationState, setGenerationState] = useState<GenerationState>("idle");
   const [modelProgress, setModelProgress] = useState<{ status: string; progress?: number; file?: string } | null>(null);
   const [generatedAudio, setGeneratedAudio] = useState<{ audioUrl: string; samplingRate: number; audioData: Float32Array } | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -57,10 +57,14 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   const [currentTime, setCurrentTime] = useState(0);
   const [totalDuration, setTotalDuration] = useState(0);
   const [streamingStartTime, setStreamingStartTime] = useState<number | null>(null);
+  
+  // Streaming configuration toggle
+  const [isStreamingEnabled, setIsStreamingEnabled] = useState(false);
 
   const workerRef = useRef<Worker | null>(null);
   const currentAudioUrlRef = useRef<string | null>(null);
   const currentAudioDataRef = useRef<Float32Array | null>(null);
+  const lastInitializedModelIdRef = useRef<string | null>(null);
   
   // Audio streaming state
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -72,14 +76,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
   const isPlaybackInterruptedRef = useRef<boolean>(false);
   const isPausedRef = useRef<boolean>(false);
 
-  // --- Streaming Audio Control Functions ---
-  
-  // --- Streaming Audio Control Functions ---
-  
-  /**
-   * Update current time animation loop
-   */
-  const startUpdateTimeAnimation = useCallback((ctx: AudioContext) => {
+  const startUpdateTimeAnimation = (ctx: AudioContext) => {
     const updateTime = () => {
       if (!isPlaybackInterruptedRef.current && ctx.state === "running") {
         const elapsed = ctx.currentTime - playbackStartTimeRef.current;
@@ -88,12 +85,12 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
       }
     };
     animationFrameRef.current = requestAnimationFrame(updateTime);
-  }, []);
+  };
   
   /**
    * Pause playback - just suspend context
    */
-  const pausePlayback = useCallback(async () => {
+  const pausePlayback = async () => {
     console.log("[audio-hook] Pause requested");
     if (audioContextRef.current && audioContextRef.current.state === "running") {
       try {
@@ -108,12 +105,12 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     } else {
       console.log("[audio-hook] Cannot pause: context not running or null. State:", audioContextRef.current?.state);
     }
-  }, []);
+  };
   
   /**
    * Resume playback - just resume context
    */
-  const resumePlayback = useCallback(async () => {
+  const resumePlayback = async () => {
     console.log("[audio-hook] Resume requested. Context state:", audioContextRef.current?.state);
     if (audioContextRef.current) {
       try {
@@ -128,12 +125,12 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     } else {
       console.log("[audio-hook] Cannot resume: no audio context");
     }
-  }, [startUpdateTimeAnimation]);
+  };
   
   /**
    * Stop streaming playback completely
    */
-  const stopStreamingPlayback = useCallback(() => {
+  const stopStreamingPlayback = () => {
     // Send stop message to worker to cancel generation
     if (workerRef.current) {
       workerRef.current.postMessage({ type: "stop-generation" });
@@ -165,10 +162,12 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     setIsStreaming(false);
     setStreamingProgress(null);
     setStreamingStartTime(null);
-  }, []);
+  };
   
-  // Initialize worker on mount
-  useEffect(() => {
+  // Initialize worker on demand
+  const initWorker = () => {
+    if (workerRef.current) return;
+    
     const worker = new Worker(
       new URL("@/client/workers/audio-gen.worker.ts", import.meta.url),
       { type: "module" },
@@ -258,8 +257,6 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
             if (index > -1) {
               activeSourceNodesRef.current.splice(index, 1);
             }
-            // If no more active sources and not last chunk, maybe pause?
-            // For now, do nothing
           };
           
           // If last chunk, store audio data for download and resolve pending
@@ -307,32 +304,47 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     workerRef.current = worker;
 
     // Initialize the pipeline with the current model and default voice
+    setIsModelReady(false);
+    setGenerationState("loading");
+    setError(null);
     const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
+    lastInitializedModelIdRef.current = selectedModel.id;
     worker.postMessage({ 
       type: "init", 
       modelId: selectedModel.id,
       voice: voiceOrEmbeddings,
       speakerEmbeddings: voiceOrEmbeddings
     } as WorkerRequest);
+  };
+
+  // Initialize worker on mount if autoInit is true
+  useEffect(() => {
+    if (autoInit) {
+      initWorker();
+    }
 
     return () => {
-      worker.postMessage({ type: "dispose" } as WorkerRequest);
-      worker.terminate();
-      workerRef.current = null;
-      pendingRequests.clear();
+      if (workerRef.current) {
+        workerRef.current.postMessage({ type: "dispose" } as WorkerRequest);
+        workerRef.current.terminate();
+        workerRef.current = null;
+        pendingRequests.clear();
+      }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, []); // Worker is created once and persists
+  }, [autoInit]); // Re-run if autoInit changes
 
-  // Re-initialize pipeline when model changes
+
   useEffect(() => {
-    if (workerRef.current && generationState === "idle") {
+    // Only re-initialize if the model has actually changed
+    if (workerRef.current && selectedModel.id !== lastInitializedModelIdRef.current) {
       setIsModelReady(false);
       setGeneratedAudio(null);
       setError(null);
       setGenerationState("loading");
       
       const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
+      lastInitializedModelIdRef.current = selectedModel.id;
       workerRef.current.postMessage({
         type: "init",
         modelId: selectedModel.id,
@@ -342,10 +354,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     }
   }, [selectedModel.id]);
 
-  /**
-   * Generate audio from text using the Web Worker.
-   */
-  const generate = useCallback(async (text: string): Promise<string> => {
+
+  const generate = async (text: string): Promise<string> => {
     if (!workerRef.current) {
       throw new Error("Worker not initialized. Please wait or reload.");
     }
@@ -385,7 +395,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
             text: text.trim(),
             voice: voiceOrEmbeddings,
             speakerEmbeddings: voiceOrEmbeddings,
-            streaming: true,
+            streaming: isStreamingEnabled,
           } as WorkerRequest,
         );
       });
@@ -411,52 +421,52 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
       setGenerationState("idle");
       throw err;
     }
-  }, [selectedModel, selectedVoice]);
+  };
 
   /**
    * Handle model change from UI
    */
-  const handleModelChange = useCallback((modelId: string) => {
+  const handleModelChange = (modelId: string) => {
     const model = AVAILABLE_TTS_MODELS.find((m) => m.id === modelId);
     if (model) {
       setSelectedModel(model);
       setSelectedVoice(model.voices[0]); // Reset to first voice of new model
     }
-  }, []);
+  };
 
   /**
    * Handle voice change from UI
    */
-  const handleVoiceChange = useCallback((voiceId: string) => {
+  const handleVoiceChange = (voiceId: string) => {
     const voice = selectedModel.voices.find((v) => v.id === voiceId);
     if (voice) {
       setSelectedVoice(voice);
     }
-  }, [selectedModel]);
+  };
 
   /**
    * Clean up generated audio URL
    */
-  const clearAudio = useCallback(() => {
+  const clearAudio = () => {
     if (currentAudioUrlRef.current) {
       revokeAudioUrl(currentAudioUrlRef.current);
       currentAudioUrlRef.current = null;
     }
     currentAudioDataRef.current = null;
     setGeneratedAudio(null);
-  }, []);
+  }
 
   /**
    * Stop streaming playback and reset state
    */
-  const stopStreaming = useCallback(() => {
+  const stopStreaming = () => {
     stopStreamingPlayback();
-  }, [stopStreamingPlayback]);
+  };
 
   /**
    * Download generated audio as WAV file
    */
-  const downloadAudio = useCallback(() => {
+  const downloadAudio = () => {
     if (!generatedAudio || !currentAudioDataRef.current) return;
     
     downloadAudioUtil(
@@ -464,7 +474,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
       generatedAudio.samplingRate, 
       `tts-audio-${Date.now()}.wav`
     );
-  }, [generatedAudio]);
+  }
 
   return {
     // State
@@ -482,6 +492,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     currentTime,
     totalDuration,
     streamingStartTime,
+    isStreamingEnabled,
+    setIsStreamingEnabled,
 
     // Actions
     generate,
@@ -492,6 +504,7 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel) {
     stopStreaming,
     pausePlayback,
     resumePlayback,
+    initWorker, // NEW: manually initialize worker
   };
 }
 
