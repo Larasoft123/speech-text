@@ -1,10 +1,6 @@
-/**
- * Custom hook for capturing microphone audio via getUserMedia.
- * Handles MediaRecorder lifecycle, chunk collection, and stream cleanup.
- * Returns audio blobs for transcription or other processing.
- */
-
 import { useState, useRef } from "react";
+import { AudioCapturer } from "@/lib/AudioCapturer";
+import { SpeechRecognizer } from "@/lib/SpeechRecognizer";
 
 export type MicrophoneRecorderState = "idle" | "recording";
 
@@ -13,7 +9,12 @@ export interface UseMicrophoneRecorderReturn {
   state: MicrophoneRecorderState;
   /** Error message if capture failed */
   error: string | null;
-  /** Start recording microphone audio. Returns a Promise that resolves with the audio Blob when recording stops. */
+  /** 
+   * Start recording microphone audio. Returns a Promise that resolves with a Blob when recording stops.
+   * The Blob type depends on the availability of the SpeechRecognition API:
+   * - If SpeechRecognition is available: Blob of type 'text/plain' containing the transcription.
+   * - Otherwise: Blob of type 'audio/webm' containing the raw audio.
+   */
   startRecording: () => Promise<Blob>;
   /** Stop recording and trigger blob resolution */
   stopRecording: () => void;
@@ -22,77 +23,85 @@ export interface UseMicrophoneRecorderReturn {
 export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
   const [state, setState] = useState<MicrophoneRecorderState>("idle");
   const [error, setError] = useState<string | null>(null);
-  const mediaRecorderRef = useRef<MediaRecorder | null>(null);
-  const chunksRef = useRef<Blob[]>([]);
-  const streamRef = useRef<MediaStream | null>(null);
-  const resolveRef = useRef<((blob: Blob) => void) | null>(null);
-  const rejectRef = useRef<((err: Error) => void) | null>(null);
+
+  // Holds the active recorder instance (either AudioCapturer or SpeechRecognizer)
+  const recognizerRef = useRef<AudioCapturer | SpeechRecognizer | null>(null);
+  // Refs to resolve/reject the promise returned by startRecording
+  const stopResolveRef = useRef<((blob: Blob) => void) | null>(null);
+  const stopRejectRef = useRef<((err: Error) => void) | null>(null);
 
   async function startRecording(): Promise<Blob> {
     setError(null);
-    chunksRef.current = [];
+    // Return a new promise that will be resolved when stopRecording is called
+    return new Promise<Blob>((resolve, reject) => {
+      stopResolveRef.current = resolve;
+      stopRejectRef.current = reject;
 
-    return new Promise<Blob>(async (resolve, reject) => {
-      resolveRef.current = resolve;
-      rejectRef.current = reject;
+      // Choose the recognizer based on availability of SpeechRecognition
+      const RecognizerClass = SpeechRecognizer.isAvailable()
+        ? SpeechRecognizer
+        : AudioCapturer;
+      const recognizer = new RecognizerClass();
+      recognizerRef.current = recognizer;
 
-      try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-          audio: {
-            channelCount: 1,
-            sampleRate: 16000,
-            echoCancellation: true,
-            noiseSuppression: true,
-          },
-        });
-        streamRef.current = stream;
-
-        const mediaRecorder = new MediaRecorder(stream, {
-          mimeType: "audio/webm;codecs=opus",
-        });
-
-        mediaRecorderRef.current = mediaRecorder;
-
-        mediaRecorder.ondataavailable = (e) => {
-          if (e.data.size > 0) {
-            chunksRef.current.push(e.data);
-          }
-        };
-
-        mediaRecorder.onstop = () => {
-          stream.getTracks().forEach((track: MediaStreamTrack) => track.stop());
-          streamRef.current = null;
-
-          const blob = new Blob(chunksRef.current, { type: "audio/webm" });
-          chunksRef.current = [];
+      recognizer
+        .start()
+        .then(() => {
+          setState("recording");
+        })
+        .catch((err: unknown) => {
+          // Starting failed (e.g., permission denied)
+          const message =
+            err instanceof Error ? err.message : "Failed to start recorder";
+          setError(message);
           setState("idle");
-          if (resolveRef.current) {
-            resolveRef.current(blob);
-            resolveRef.current = null;
-            rejectRef.current = null;
+          // Reject the promise because we cannot proceed to record
+          if (stopRejectRef.current) {
+            stopRejectRef.current(err as Error);
+            stopResolveRef.current = null;
+            stopRejectRef.current = null;
           }
-        };
-
-        mediaRecorder.start(1000);
-        setState("recording");
-      } catch (err) {
-        const errorMessage =
-          err instanceof Error ? err.message : "Failed to access microphone";
-        setError(errorMessage);
-        setState("idle");
-        if (rejectRef.current) {
-          rejectRef.current(new Error(errorMessage));
-          resolveRef.current = null;
-          rejectRef.current = null;
-        }
-      }
+          recognizerRef.current = null;
+        });
     });
   }
 
   function stopRecording() {
-    if (mediaRecorderRef.current && mediaRecorderRef.current.state !== "inactive") {
-      mediaRecorderRef.current.stop();
+    const recognizer = recognizerRef.current;
+    if (!recognizer) {
+      // Nothing to stop
+      return;
     }
+
+    recognizer
+      .stop()
+      .then((blob: Blob) => {
+        setState("idle");
+        // Resolve the promise from startRecording
+        if (stopResolveRef.current) {
+          stopResolveRef.current(blob);
+          stopResolveRef.current = null;
+          stopRejectRef.current = null;
+        }
+        // Clean up
+        recognizer.destroy();
+        recognizerRef.current = null;
+      })
+      .catch((err) => {
+        const message =
+          err instanceof Error ? err.message : "Unknown error";
+        setError(message);
+        setState("idle");
+        // Reject the promise from startRecording
+        if (stopRejectRef.current) {
+          stopRejectRef.current(err);
+          stopResolveRef.current = null;
+          stopRejectRef.current = null;
+        }
+        // Clean up
+        recognizer.destroy();
+        recognizerRef.current = null;
+      });
   }
 
   return {

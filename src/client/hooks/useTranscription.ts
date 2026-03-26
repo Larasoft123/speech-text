@@ -248,8 +248,13 @@ export function useTranscription(
 
     try {
       const blob = await startMicrophoneRecordingRaw();
-      const file = new File([blob], "Recording.webm", { type: "audio/webm" });
-      await transcribe(file);
+      if (blob.type === 'text/plain') {
+        const text = await blob.text();
+        setTranscription({ text, chunks: [] });
+      } else {
+        const file = new File([blob], "Recording.webm", { type: blob.type });
+        await transcribe(file);
+      }
     } catch (err) {
       if (err instanceof Error && err.name === "NotAllowedError") {
         setError("Microphone access denied. Please allow microphone access.");
