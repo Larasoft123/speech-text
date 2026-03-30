@@ -1,4 +1,4 @@
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect } from "react";
 import { AudioCapturer } from "@/lib/AudioCapturer";
 import { SpeechRecognizer } from "@/lib/SpeechRecognizer";
 
@@ -29,6 +29,22 @@ export function useMicrophoneRecorder(): UseMicrophoneRecorderReturn {
   // Refs to resolve/reject the promise returned by startRecording
   const stopResolveRef = useRef<((blob: Blob) => void) | null>(null);
   const stopRejectRef = useRef<((err: Error) => void) | null>(null);
+
+  // Cleanup on unmount: destroy recognizer if still active (prevents memory/mic leaks)
+  useEffect(() => {
+    return () => {
+      if (recognizerRef.current) {
+        recognizerRef.current.destroy();
+        recognizerRef.current = null;
+        // Reject any pending promise
+        if (stopRejectRef.current) {
+          stopRejectRef.current(new Error("Component unmounted while recording"));
+          stopResolveRef.current = null;
+          stopRejectRef.current = null;
+        }
+      }
+    };
+  }, []);
 
   async function startRecording(): Promise<Blob> {
     setError(null);

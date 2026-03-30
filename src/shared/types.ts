@@ -40,6 +40,7 @@ export type IconName =
   | "skip_next"
   | "skip_previous"
   | "play_circle"
+  | "volume_up"
   | "record_voice_over";
 
 // Navigation Link (for TopNav - can have optional icon)
