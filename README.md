@@ -1,77 +1,36 @@
-# 🎙️ Openvoice: Speech-to-Text Local y Privado
+This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
 
-Este proyecto es una implementación de transcripción de audio a texto que corre íntegramente en el navegador, priorizando la privacidad del usuario y la eficiencia técnica.
+## Getting Started
 
-[![Next.js 16](https://img.shields.io/badge/Next.js-16.2.1-black?style=for-the-badge&logo=next.js)](https://nextjs.org/)
-[![React 19](https://img.shields.io/badge/React-19.2.4-blue?style=for-the-badge&logo=react)](https://react.dev/)
-[![Tailwind CSS 4](https://img.shields.io/badge/Tailwind_CSS-v4-38B2AC?style=for-the-badge&logo=tailwind-css)](https://tailwindcss.com/)
-[![Transformers.js](https://img.shields.io/badge/Transformers.js-v3-FFD21E?style=for-the-badge&logo=huggingface)](https://huggingface.co/docs/transformers.js/)
+First, run the development server:
 
----
-
-## 🎯 ¿Qué soluciona?
-
-La mayoría de las herramientas de transcripción actuales dependen de APIs pagas o servicios en la nube que procesan tus datos en servidores externos. **Openvoice** elimina esa dependencia procesando todo de forma local:
-
-- **Privacidad Total:** Tus audios nunca salen de tu computadora. El procesamiento se hace mediante Web Workers en el cliente.
-- **Cero Costos de API:** Al usar modelos ONNX ejecutados por Transformers.js, no dependés de cuotas de OpenAI o Google.
-- **Offline-Ready:** Una vez descargado el modelo, la herramienta puede funcionar sin conexión a internet.
-
----
-
-## 🎨 Principios de la Interfaz
-
-La UI se construyó bajo principios de diseño moderno que buscan claridad y profundidad sin recurrir a elementos pesados:
-
-- **Tonal Layering:** Uso de capas tonales para separar contextos sin necesidad de bordes sólidos.
-- **Glassmorphism:** Paneles sutiles con `backdrop-blur` para mantener la fluidez visual.
-- **Ambient Lift:** Manejo de sombras ambientales para generar jerarquía visual de forma natural.
-- **No-Line Rule:** La separación de elementos se logra mediante el espacio y el contraste tonal, evitando el ruido visual de los divisores tradicionales.
-
----
-
-## 🛠️ Stack Tecnológico
-
-- **Next.js 16 (App Router):** Estructura de rutas moderna y optimizada por el servidor.
-- **React 19:** Implementación de componentes con el último motor de renderizado y hooks.
-- **Tailwind CSS v4:** Configuración nativa basada en variables CSS para un sistema de diseño más liviano.
-- **Transformers.js:** Ejecución de modelos de inteligencia artificial (Whisper) directamente en el navegador a través de ONNX.
-
----
-
-## 📁 Estructura del Proyecto
-
-```text
-src/
-├── app/            # Rutas y layouts principales
-├── landing/        # Componentes de la interfaz de presentación
-├── shared/         # Biblioteca de componentes UI y utilidades
-├── lib/            # Lógica de Transformers.js, hooks y configuración de IA
-└── docs/           # Documentación técnica del sistema de diseño
+```bash
+npm run dev
+# or
+yarn dev
+# or
+pnpm dev
+# or
+bun dev
 ```
 
----
+Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
 
-## ⚙️ Instalación y Desarrollo
+You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
 
-1.  **Cloná el repositorio:**
-    ```bash
-    git clone e:/Proyectos/speech-text
-    ```
-2.  **Instalá las dependencias:**
-    ```bash
-    npm install
-    ```
-3.  **Iniciá el servidor local:**
-    ```bash
-    npm run dev
-    ```
-4.  Abrí `http://localhost:3000` para probar la transcripción local.
+This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
 
----
+## Learn More
 
-## 🧠 Guía para Desarrolladores
+To learn more about Next.js, take a look at the following resources:
 
-Si vas a meter mano en el código, revisá los documentos técnicos en `/docs`. Ahí detallamos cómo se manejan los tokens de color, la tipografía y los patrones de componentes para mantener la coherencia técnica del proyecto.
+- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
+- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
 
-**¡Dale que es por acá!** 🚀
+You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+
+## Deploy on Vercel
+
+The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+
+Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
