@@ -5,7 +5,11 @@ const nextConfig: NextConfig = {
   // opt-out list, but we list them explicitly for clarity.
   // Using --webpack flag in dev (not Turbopack) so webpack handles bundling.
   serverExternalPackages: ["onnxruntime-node", "@huggingface/transformers"],
-  reactCompiler: true
+  reactCompiler: true,
+  experimental: {
+    viewTransition: true,
+  },
+  output: "standalone",
 };
 
 export default nextConfig;
