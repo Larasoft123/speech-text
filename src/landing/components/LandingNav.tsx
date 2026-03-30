@@ -1,62 +1,52 @@
-"use client";
+import Link from "next/link";
+import { Button } from "@/shared/components/Button";
+
 
 interface NavLink {
   label: string;
   href: string;
 }
 
-interface LandingNavProps {
-  logo?: string;
-  navLinks?: NavLink[];
-  onLoginClick?: () => void;
-  onGetStartedClick?: () => void;
-}
 
-export function LandingNav({
-  logo = "AetherVoice",
-  navLinks = [],
-  onLoginClick,
-  onGetStartedClick,
-}: LandingNavProps) {
+
+const NAV_LINKS: NavLink[] = [
+  { label: "Features", href: "#features" },
+  { label: "Steps", href: "#steps" },
+];
+
+export function LandingNav() {
   return (
-    <nav
-      className="fixed top-0 left-0 right-0 z-50 bg-surface/60 backdrop-blur-xl shadow-[0_20px_40px_rgba(229,43,80,0.04)]"
+    <header
+      className="fixed top-0 left-0 right-0 z-50 bg-surface/60 backdrop-blur-xl shadow-ambient"
     >
-      <div className="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto">
-        {/* Logo */}
-        <div className="text-xl font-bold tracking-tighter text-brand-primary">
-          {logo}
-        </div>
+      <nav className="flex justify-between items-center px-8 py-4 max-w-7xl mx-auto" aria-label="Main navigation">
+
+
+        <Link href="/">
+          <h2 className="text-xl font-bold tracking-tighter text-brand-primary">
+            OpenVoice
+          </h2>
+        </Link>
 
         {/* Nav Links */}
         <div className="hidden md:flex items-center space-x-8">
-          {navLinks.map((link, index) => (
-            <a
+          {NAV_LINKS.map((link, index) => (
+            <Link
               key={`landing-nav-${link.href}-${index}`}
               href={link.href}
-              className="text-slate-400 font-['Inter'] text-sm tracking-tight hover:text-white transition-colors duration-300"
+              className="text-on-surface-variant font-['Inter'] text-sm tracking-tight hover:text-on-surface transition-colors duration-300"
             >
               {link.label}
-            </a>
+            </Link>
           ))}
         </div>
 
         {/* Actions */}
         <div className="flex items-center space-x-4">
-          <button
-            onClick={onLoginClick}
-            className="text-slate-400 font-['Inter'] text-sm tracking-tight hover:text-white transition-colors scale-95 duration-200"
-          >
-            Login
-          </button>
-          <button
-            onClick={onGetStartedClick}
-            className="bg-primary-container text-on-primary-container px-5 py-2 rounded-lg font-['Inter'] text-sm tracking-tight font-semibold hover:opacity-90 transition-all scale-95 duration-200"
-          >
-            Get Started
-          </button>
+          <Button disabled variant="ghost">Login</Button>
+          
         </div>
-      </div>
-    </nav>
+      </nav>
+    </header>
   );
 }

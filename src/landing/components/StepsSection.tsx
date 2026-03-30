@@ -1,10 +1,9 @@
-"use client";
+import { EtherealGrid } from "./EtherealGrid";
 
 interface Step {
-  number: number;
   title: string;
   description: string;
-  color: string;
+  icon: string;
 }
 
 interface StepsSectionProps {
@@ -15,37 +14,26 @@ interface StepsSectionProps {
 
 const defaultSteps: Step[] = [
   {
-    number: 1,
     title: "Upload",
-    description: "Lossless ingestion of your raw masters or field recordings.",
-    color: "primary",
+    description: "Ingestion of your raw masters or field recordings.",
+    icon: "cloud_upload"
   },
   {
-    number: 2,
     title: "Edit",
-    description: "Refine text and timestamps with our editorial-grade interface.",
-    color: "secondary",
+    description: "Refine text and timestamps with our interface.",
+    icon: "edit_square"
   },
   {
-    number: 3,
     title: "Translate",
-    description: "Instant linguistic mapping with specialized AI models.",
-    color: "tertiary",
+    description: "Instant linguistic mapping with AI models.",
+    icon: "translate"
   },
   {
-    number: 4,
     title: "Synthesize",
-    description: "Export high-fidelity cloned audio in any destination language.",
-    color: "white",
+    description: "Export cloned audio in any destination language.",
+    icon: "waves"
   },
 ];
-
-const colorMap: Record<string, string> = {
-  primary: "text-primary",
-  secondary: "text-secondary",
-  tertiary: "text-tertiary",
-  white: "text-white",
-};
 
 export function StepsSection({
   eyebrow = "The Workflow",
@@ -53,44 +41,23 @@ export function StepsSection({
   steps = defaultSteps,
 }: StepsSectionProps) {
   return (
-    <section className="py-32 relative">
-      <div className="max-w-7xl mx-auto px-8">
+    <section id="steps" className="py-40 relative overflow-hidden bg-surface-container-low/20">
+      {/* Dynamic Background Layering */}
+      <div className="absolute top-0 inset-x-0 h-px bg-gradient-to-r from-transparent via-outline-variant/10 to-transparent" />
+
+      <div className="max-w-7xl mx-auto px-8 relative z-10">
         {/* Header */}
-        <div className="mb-24">
-          <span className="text-brand-primary font-bold tracking-[0.3em] uppercase text-xs mb-4 block">
+        <header className="mb-24 text-center">
+          <span className="text-primary font-bold tracking-[0.4em] uppercase text-[10px] mb-6 block opacity-80">
             {eyebrow}
           </span>
-          <h2 className="text-4xl font-black tracking-tight">{title}</h2>
-        </div>
+          <h2 className="text-5xl font-black tracking-tighter text-on-surface max-w-2xl mx-auto leading-[1.1]">
+            {title}
+          </h2>
+        </header>
 
-        {/* Steps */}
-        <div className="relative">
-          {/* Connector Line - Vertical on mobile, Horizontal on desktop */}
-          <div className={`absolute left-8 top-0 bottom-0 w-px 
-            bg-linear-to-b from-primary/40 via-secondary/40 to-tertiary/40 
-            md:left-0 md:right-0 md:h-px md:w-full md:top-12 md:bg-linear-to-r`
-          } />
-
-          {/* Step Cards */}
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-12 relative z-10">
-            {steps.map((step) => (
-              <div key={`step-${step.number}`} className="bg-surface p-8 pt-0 md:pt-20">
-                {/* Step Number */}
-                <div className={`w-12 h-12 rounded-full bg-surface border-4 border-surface-container-high flex items-center justify-center font-black mb-6 ${colorMap[step.color]}`}>
-                  {step.number}
-                </div>
-
-                {/* Title */}
-                <h4 className="font-bold mb-3">{step.title}</h4>
-
-                {/* Description */}
-                <p className="text-sm text-on-surface-variant leading-relaxed">
-                  {step.description}
-                </p>
-              </div>
-            ))}
-          </div>
-        </div>
+        {/* Modular Ethereal Grid */}
+        <EtherealGrid items={steps} showNumbers columns={4} />
       </div>
     </section>
   );

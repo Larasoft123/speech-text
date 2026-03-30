@@ -1,6 +1,6 @@
-"use client";
-
 import { Button } from "@/shared/components/Button";
+
+
 
 interface WaveformBar {
   height: number;
@@ -10,6 +10,12 @@ interface WaveformBar {
 
 interface WaveformVizProps {
   bars?: WaveformBar[];
+  className?: string;
+}
+interface UIPreviewCardProps {
+  title?: string;
+  subtitle?: string;
+  progress?: number;
   className?: string;
 }
 
@@ -22,6 +28,15 @@ const defaultBars: WaveformBar[] = [
   { height: 62.5, opacity: 1, delay: "0.5s" },
   { height: 43.75, opacity: 1, delay: "0.2s" },
 ];
+
+
+const HERO_SECTION_CONTENT = {
+  title: "Understand and create any voice in seconds",
+  subtitle: "Capture, transcribe, translate, and synthesize speech in a few seconds.",
+  primaryCtaLabel: "Start Your Recording",
+  secondaryCtaLabel: "Try the features for free",
+}
+
 
 export function WaveformViz({
   bars = defaultBars,
@@ -44,12 +59,7 @@ export function WaveformViz({
   );
 }
 
-interface UIPreviewCardProps {
-  title?: string;
-  subtitle?: string;
-  progress?: number;
-  className?: string;
-}
+
 
 export function UIPreviewCard({
   title = "Real-time Sync",
@@ -58,7 +68,7 @@ export function UIPreviewCard({
   className = "",
 }: UIPreviewCardProps) {
   return (
-    <div className={`glass-panel p-4 rounded-xl shadow-2xl scale-90 border border-outline-variant/20 ${className}`}>
+    <div className={`glass-panel p-4 rounded-xl shadow-glow-primary scale-90 ${className}`}>
       <div className="flex items-center space-x-3 mb-2">
         <div className="w-2 h-2 rounded-full bg-brand-primary"></div>
         <span className="text-[10px] uppercase tracking-widest font-bold opacity-60">
@@ -72,29 +82,18 @@ export function UIPreviewCard({
         />
       </div>
       {subtitle && (
-        <span className="text-[8px] text-slate-500 mt-1 block">{subtitle}</span>
+        <span className="text-[8px] text-outline mt-1 block">{subtitle}</span>
       )}
     </div>
   );
 }
 
-interface HeroSectionProps {
-  title?: string;
-  subtitle?: string;
-  primaryCtaLabel?: string;
-  secondaryCtaLabel?: string;
-  onPrimaryClick?: () => void;
-  onSecondaryClick?: () => void;
-}
 
-export function HeroSection({
-  title = "Globalize Your Discourse with AI Precision",
-  subtitle = "Transcription, translation, and TTS in one seamless workflow. Experience the ethereal boundary between human thought and digital expression.",
-  primaryCtaLabel = "Start Your Recording",
-  secondaryCtaLabel = "Watch Demo",
-  onPrimaryClick,
-  onSecondaryClick,
-}: HeroSectionProps) {
+
+export function HeroSection() {
+  const { primaryCtaLabel, secondaryCtaLabel, subtitle, title } = HERO_SECTION_CONTENT
+
+
   return (
     <section className="max-w-7xl mx-auto px-8 mb-32 relative pt-32">
       {/* Background Glow */}
@@ -104,7 +103,7 @@ export function HeroSection({
         {/* Left Content */}
         <div className="lg:col-span-7 z-10">
           {/* Title */}
-          <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tighter leading-[1.05] mb-8 bg-gradient-to-br from-white via-white to-slate-500 bg-clip-text text-transparent">
+          <h1 className="text-5xl lg:text-7xl font-extrabold tracking-tighter leading-[1.05] mb-8 bg-gradient-to-br from-white via-white to-on-surface-variant bg-clip-text text-transparent">
             {title}
           </h1>
 
@@ -115,13 +114,25 @@ export function HeroSection({
 
           {/* CTA Buttons */}
           <div className="flex flex-wrap gap-6">
-            <button onClick={onPrimaryClick} className="bg-gradient-to-r from-primary-container to-inverse-primary text-on-primary-container px-8 py-4 rounded-xl font-bold tracking-tight hover:scale-105 transition-transform">
+            <Button
+              variant="primary"
+              size="lg"
+              disabled
+         
+              aria-label={primaryCtaLabel}
+            >
               {primaryCtaLabel}
-            </button>
-            <button onClick={onSecondaryClick} className="flex items-center space-x-3 bg-surface-container-highest px-8 py-4 rounded-xl font-semibold hover:bg-surface-bright transition-colors">
-              <span className="material-symbols-outlined text-xl">play_circle</span>
-              <span>{secondaryCtaLabel}</span>
-            </button>
+            </Button>
+
+
+            <Button
+              href="/local-features"
+              variant="surface"
+              size="lg"
+              aria-label={secondaryCtaLabel}
+            >
+              {secondaryCtaLabel}
+            </Button>
           </div>
         </div>
 
@@ -129,7 +140,8 @@ export function HeroSection({
         <div className="lg:col-span-5 relative">
           {/* Main Circle */}
           <div className="aspect-square glass-panel rounded-full flex items-center justify-center p-8 relative overflow-hidden group">
-            <div className="absolute inset-0 bg-gradient-to-tr from-primary/10 to-secondary/10 opacity-50" />
+            <div className="absolute inset-x-0 -bottom-24 h-96 bg-gradient-to-br from-primary/10 via-primary-container/10 to-transparent blur-3xl rounded-full opacity-50" />
+            <div className="absolute inset-0 bg-gradient-to-tr from-primary-container/20 to-transparent" />
             <WaveformViz />
           </div>
 
