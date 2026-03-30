@@ -293,45 +293,110 @@ async function generateAudio(
     // Build options based on model type
     const isSupertonic = SUPERTRONIC_MODELS.has(modelId);
 
-    let inputText = text;
-    const options: Record<string, unknown> = {};
-
     if (isSupertonic) {
-      // Supertonic 2 requires language prefix in text: <en>, <ko>, <es>, <pt>, <fr>
-      // Default to English if not specified
+      // Supertonic: Use chunking to avoid fixed duration issues
+      const sentences = splitTextIntoSentences(text);
+      console.log(`[audio-worker] Supertonic non-streaming: split text into ${sentences.length} sentences`);
+      
       const speakerEmbed = voice || "https://huggingface.co/onnx-community/Supertonic-TTS-2-ONNX/resolve/main/voices/F1.bin";
       console.log(`[audio-worker] Supertonic using speaker_embeddings: ${speakerEmbed}`);
-      options.speaker_embeddings = speakerEmbed;
-      // Supertonic 2 supports inference steps for quality
-      options.num_inference_steps = 5;
-
-      // Add language prefix for Supertonic 2
-      // If text doesn't already have a language tag, add <en>
-      if (!text.match(/^<[a-z]{2}>/i)) {
-        inputText = `<en>${text}</en>`;
+      
+      const baseOptions: Record<string, unknown> = {
+        speaker_embeddings: speakerEmbed,
+        num_inference_steps: 5,
+        speed: 1.0,
+      };
+      
+      // Generate audio for each sentence and accumulate
+      const audioChunks: Float32Array[] = [];
+      let samplingRate = 44100; // Default Supertonic sampling rate
+      
+      for (let i = 0; i < sentences.length; i++) {
+        if (shouldStopGeneration) {
+          console.log(`[audio-worker] Generation stopped at chunk ${i}`);
+          break;
+        }
+        
+        const sentence = sentences[i];
+        let inputText = sentence;
+        
+        // Add language prefix for Supertonic if needed
+        if (!sentence.match(/^<[a-z]{2}>/i)) {
+          inputText = `<en>${sentence}</en>`;
+        }
+        
+        console.log(`[audio-worker] Generating chunk ${i + 1}/${sentences.length}: "${sentence.substring(0, 30)}..."`);
+        
+        const result = await synth(inputText, baseOptions) as {
+          audio: Float32Array;
+          sampling_rate: number;
+        };
+        
+        if (shouldStopGeneration) {
+          console.log(`[audio-worker] Generation stopped after chunk ${i}`);
+          break;
+        }
+        
+        samplingRate = result.sampling_rate;
+        
+        // Add silence between chunks (except after last)
+        let audioWithSilence = result.audio;
+        if (i < sentences.length - 1) {
+          const silenceSamples = Math.floor(0.3 * result.sampling_rate); // 0.3 seconds silence
+          audioWithSilence = new Float32Array(result.audio.length + silenceSamples);
+          audioWithSilence.set(result.audio);
+          // Rest is already zeros (silence)
+        }
+        
+        audioChunks.push(audioWithSilence);
       }
+      
+      // Concatenate all chunks
+      const totalLength = audioChunks.reduce((sum, chunk) => sum + chunk.length, 0);
+      const completeAudio = new Float32Array(totalLength);
+      let offset = 0;
+      for (const chunk of audioChunks) {
+        completeAudio.set(chunk, offset);
+        offset += chunk.length;
+      }
+      
+      console.log(`[audio-worker] Generated ${completeAudio.length} samples at ${samplingRate}Hz (chunked)`);
+      console.log(`[audio-worker] Audio duration: ${(completeAudio.length / samplingRate).toFixed(2)} seconds`);
+      
+      postResponse({
+        type: "result",
+        id,
+        audio: completeAudio,
+        samplingRate: samplingRate,
+      });
+      
     } else {
-      // SpeechT5 uses external speaker embeddings URL from Xenova dataset
+      // SpeechT5: Generate directly without chunking
+      let inputText = text;
+      const options: Record<string, unknown> = {};
+      
       const speakerEmbed = speakerEmbeddings ||
         "https://huggingface.co/datasets/Xenova/transformers.js-docs/resolve/main/speaker_embeddings.bin";
       console.log(`[audio-worker] SpeechT5 using speaker_embeddings: ${speakerEmbed}`);
       options.speaker_embeddings = speakerEmbed;
+
+      // Generate audio
+      const result = await synth(inputText, options) as {
+        audio: Float32Array;
+        sampling_rate: number;
+      };
+
+      console.log(`[audio-worker] Generated ${result.audio.length} samples at ${result.sampling_rate}Hz`);
+      console.log(`[audio-worker] Audio duration: ${(result.audio.length / result.sampling_rate).toFixed(2)} seconds`);
+
+      postResponse({
+        type: "result",
+        id,
+        audio: result.audio,
+        samplingRate: result.sampling_rate,
+      });
     }
-
-    // Generate audio
-    const result = await synth(inputText, options) as {
-      audio: Float32Array;
-      sampling_rate: number;
-    };
-
-    console.log(`[audio-worker] Generated ${result.audio.length} samples at ${result.sampling_rate}Hz`);
-
-    postResponse({
-      type: "result",
-      id,
-      audio: result.audio,
-      samplingRate: result.sampling_rate,
-    });
+    
   } catch (err) {
     const message = err instanceof Error ? err.message : "Audio generation failed";
     console.error(`[audio-worker] Generation error: ${message}`);
