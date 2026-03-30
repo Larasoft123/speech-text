@@ -21,7 +21,7 @@
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│ AetherVoice    Projects  Library  Automation    🔔 ⚙️  [Avatar] │
+│ OpenVoice    Projects  Library  Automation    🔔 ⚙️  [Avatar] │
 └─────────────────────────────────────────────────────────────────┘
 
 Props:
@@ -33,7 +33,7 @@ Props:
 ```
 
 **Elementos:**
-- Logo "AetherVoice" (bold, tracking-tighter)
+- Logo "OpenVoice" (bold, tracking-tighter)
 - Nav links (Projects activo con border-b)
 - Notification icon button
 - Settings icon button
@@ -192,7 +192,7 @@ Props:
 
 ```
 ┌─────────────────────────────────────────────────────────────────┐
-│  © 2024 AetherVoice AI • Ethereal Tool v2.0    Status Privacy… │
+│  © 2024 OpenVoice AI • Ethereal Tool v2.0    Status Privacy… │
 └─────────────────────────────────────────────────────────────────┘
 
 Props:

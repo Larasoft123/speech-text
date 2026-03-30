@@ -94,7 +94,7 @@
 ">
   <div class="flex items-center gap-8">
     <span class="text-xl font-bold tracking-tighter text-slate-100">
-      AetherVoice
+      OpenVoice
     </span>
     <nav class="hidden md:flex items-center gap-6 text-sm font-medium">
       <a class="text-[#E52B50] border-b-2 border-[#E52B50] pb-1" href="#">
@@ -455,7 +455,7 @@
   z-40
 ">
   <div class="text-[10px] uppercase tracking-widest text-slate-500">
-    © 2024 AetherVoice AI • Ethereal Tool v2.0
+    © 2024 OpenVoice AI • Ethereal Tool v2.0
   </div>
   <div class="flex gap-6">
     <a class="text-[10px] uppercase tracking-widest text-slate-600 
