@@ -30,13 +30,6 @@ type PendingRequest = {
 };
 
 // ============================================================================
-// State
-// ============================================================================
-
-let requestCounter = 0;
-const pendingRequests = new Map<string, PendingRequest>();
-
-// ============================================================================
 // Hook
 // ============================================================================
 
@@ -65,6 +58,9 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
   const currentAudioUrlRef = useRef<string | null>(null);
   const currentAudioDataRef = useRef<Float32Array | null>(null);
   const lastInitializedModelIdRef = useRef<string | null>(null);
+  // Per-instance: request counter and pending requests map (no shared module state)
+  const requestCounterRef = useRef(0);
+  const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
   
   // Audio streaming state
   const audioContextRef = useRef<AudioContext | null>(null);
@@ -75,6 +71,9 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
   const accumulatedDurationRef = useRef<number>(0);
   const isPlaybackInterruptedRef = useRef<boolean>(false);
   const isPausedRef = useRef<boolean>(false);
+  const previousStreamingEnabledRef = useRef(isStreamingEnabled);
+  const audioChunksRef = useRef<Float32Array[]>([]); // Accumulate chunks for seek
+
 
   const startUpdateTimeAnimation = (ctx: AudioContext) => {
     const updateTime = () => {
@@ -128,18 +127,10 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
   };
   
   /**
-   * Stop streaming playback completely
+   * Reset all audio-related state to idle, cleaning up resources.
    */
-  const stopStreamingPlayback = () => {
-    // Send stop message to worker to cancel generation
-    if (workerRef.current) {
-      workerRef.current.postMessage({ type: "stop-generation" });
-    }
-    
-    isPlaybackInterruptedRef.current = true;
-    isPausedRef.current = false;
-    
-    // Stop all active sources
+  const resetAudioState = () => {
+    // Stop all active source nodes
     activeSourceNodesRef.current.forEach(source => {
       try {
         source.stop();
@@ -148,20 +139,50 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
       }
     });
     activeSourceNodesRef.current = [];
-    
+
+    // Close audio context
     if (audioContextRef.current) {
       audioContextRef.current.close();
       audioContextRef.current = null;
     }
+
+    // Cancel animation frame
     cancelAnimationFrame(animationFrameRef.current);
+
+    // Reset refs
     nextPlayTimeRef.current = 0;
     accumulatedDurationRef.current = 0;
+    playbackStartTimeRef.current = 0;
+    isPlaybackInterruptedRef.current = true;
+    isPausedRef.current = false;
+
+    // Reset state
     setCurrentTime(0);
     setTotalDuration(0);
     setIsPlaying(false);
     setIsStreaming(false);
     setStreamingProgress(null);
     setStreamingStartTime(null);
+    setGenerationState("idle");
+    setError(null);
+    // Clear generated audio (revoke URL and clear state)
+    if (currentAudioUrlRef.current) {
+      revokeAudioUrl(currentAudioUrlRef.current);
+      currentAudioUrlRef.current = null;
+    }
+    currentAudioDataRef.current = null;
+    setGeneratedAudio(null);
+  };
+
+  /**
+   * Stop streaming playback completely
+   */
+  const stopStreamingPlayback = () => {
+    // Send stop message to worker to cancel generation
+    if (workerRef.current) {
+      workerRef.current.postMessage({ type: "stop-generation" });
+    }
+    resetAudioState();
   };
   
   // Initialize worker on demand
@@ -196,13 +217,13 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
         }
 
         case "result": {
-          const pending = pendingRequests.get(response.id);
+          const pending = pendingRequestsRef.current.get(response.id);
           if (pending) {
             pending.resolve({
               audio: response.audio,
               samplingRate: response.samplingRate,
             });
-            pendingRequests.delete(response.id);
+            pendingRequestsRef.current.delete(response.id);
           }
           break;
         }
@@ -215,6 +236,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
             audioContextRef.current = new (window.AudioContext || (window as any).webkitAudioContext)();
             playbackStartTimeRef.current = audioContextRef.current.currentTime + 0.1;
             nextPlayTimeRef.current = playbackStartTimeRef.current;
+            // Clear previous chunks
+            audioChunksRef.current = [];
           }
           
           const ctx = audioContextRef.current;
@@ -222,7 +245,10 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
             ctx.resume();
           }
           
-          // Create AudioBuffer
+          // Accumulate chunk for seek functionality
+          audioChunksRef.current.push(new Float32Array(audio));
+          
+          // Create AudioBuffer for playback
           const buffer = ctx.createBuffer(1, audio.length, samplingRate);
           buffer.getChannelData(0).set(audio);
           
@@ -259,19 +285,36 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
             }
           };
           
-          // If last chunk, store audio data for download and resolve pending
+          // If last chunk, create complete audio buffer for seek
           if (isLast) {
-            // Store for later download
-            currentAudioDataRef.current = audio; // Store last chunk, full audio will be concatenated at end
+            // Concatenate all chunks into a single buffer
+            const totalLength = audioChunksRef.current.reduce((sum, chunk) => sum + chunk.length, 0);
+            const completeAudio = new Float32Array(totalLength);
+            let offset = 0;
+            for (const chunk of audioChunksRef.current) {
+              completeAudio.set(chunk, offset);
+              offset += chunk.length;
+            }
+            
+            // Store complete audio for download and seek
+            currentAudioDataRef.current = completeAudio;
+            
+            // Create complete AudioBuffer for seek functionality
+            if (audioContextRef.current) {
+              const completeBuffer = audioContextRef.current.createBuffer(1, completeAudio.length, samplingRate);
+              completeBuffer.getChannelData(0).set(completeAudio);
+              // Store reference for seek (we'll use this in seekTo)
+              (audioContextRef.current as any).__completeBuffer = completeBuffer;
+            }
             
             // Resolve pending request if any
-            const pending = pendingRequests.get(id);
+            const pending = pendingRequestsRef.current.get(id);
             if (pending) {
               pending.resolve({
-                audio: audio,
+                audio: completeAudio,
                 samplingRate: samplingRate,
               });
-              pendingRequests.delete(id);
+              pendingRequestsRef.current.delete(id);
             }
             
             // Reset streaming state
@@ -285,10 +328,10 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
           console.error("[audio-hook] Error:", response.error);
           setGenerationState("idle");
           setError(response.error);
-          const pending = pendingRequests.get(response.id ?? "");
+          const pending = pendingRequestsRef.current.get(response.id ?? "");
           if (pending) {
             pending.reject(new Error(response.error));
-            pendingRequests.delete(response.id ?? "");
+            pendingRequestsRef.current.delete(response.id ?? "");
           }
           break;
         }
@@ -328,7 +371,11 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
         workerRef.current.postMessage({ type: "dispose" } as WorkerRequest);
         workerRef.current.terminate();
         workerRef.current = null;
-        pendingRequests.clear();
+        // Clean up all pending requests for this instance
+        for (const [, pending] of pendingRequestsRef.current) {
+          pending.reject(new Error("Component unmounted"));
+        }
+        pendingRequestsRef.current.clear();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -369,22 +416,30 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
       revokeAudioUrl(currentAudioUrlRef.current);
     }
 
+    // Clean up previous audio resources to prevent concatenation
+    resetAudioState();
+
     setGenerationState("generating");
     setModelProgress(null);
     setError(null);
     setGeneratedAudio(null);
-    setIsStreaming(true);
-    setStreamingProgress({ current: 0, total: 0 });
+    if (isStreamingEnabled) {
+      setIsStreaming(true);
+      setStreamingProgress({ current: 0, total: 0 });
+    } else {
+      setIsStreaming(false);
+      setStreamingProgress(null);
+    }
     setStreamingStartTime(Date.now());
     isPlaybackInterruptedRef.current = false;
 
     try {
       // Generate unique request ID
-      const id = `gen-${++requestCounter}`;
+      const id = `gen-${++requestCounterRef.current}`;
 
       // Create a promise that resolves when worker responds
       const result = await new Promise<AudioGenerationResult>((resolve, reject) => {
-        pendingRequests.set(id, { resolve, reject });
+        pendingRequestsRef.current.set(id, { resolve, reject });
 
         const voiceOrEmbeddings = selectedVoice.speakerEmbeddings;
         console.log(`[audio-hook] Generating with voice: ${voiceOrEmbeddings}`);
@@ -456,6 +511,15 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
     setGeneratedAudio(null);
   }
 
+  // Clear generated audio when streaming is disabled
+  useEffect(() => {
+    if (previousStreamingEnabledRef.current && !isStreamingEnabled) {
+      // Streaming changed from true to false
+      clearAudio();
+    }
+    previousStreamingEnabledRef.current = isStreamingEnabled;
+  }, [isStreamingEnabled, clearAudio]);
+
   /**
    * Stop streaming playback and reset state
    */
@@ -475,6 +539,89 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
       `tts-audio-${Date.now()}.wav`
     );
   }
+
+  /**
+   * Seek to a specific time in the audio playback.
+   * Works after streaming generation is complete.
+   */
+  const seekTo = async (time: number) => {
+    if (!audioContextRef.current || !currentAudioDataRef.current || isStreaming) {
+      console.log("[audio-hook] Seek not available: audioContext or audio data missing, or still streaming");
+      return;
+    }
+
+    // Validate time bounds
+    const clampedTime = Math.max(0, Math.min(time, totalDuration));
+    
+    // Cancel any existing animation frame
+    cancelAnimationFrame(animationFrameRef.current);
+    
+    // Stop current playback
+    activeSourceNodesRef.current.forEach(source => {
+      try {
+        source.stop();
+      } catch (e) {
+        // Already stopped
+      }
+    });
+    activeSourceNodesRef.current = [];
+
+    // Use complete buffer if available, otherwise create from data
+    const ctx = audioContextRef.current;
+    let buffer: AudioBuffer;
+    const completeBuffer = (ctx as any).__completeBuffer as AudioBuffer | undefined;
+    const samplingRate = generatedAudio?.samplingRate || 44100;
+    
+    if (completeBuffer) {
+      buffer = completeBuffer;
+    } else {
+      buffer = ctx.createBuffer(1, currentAudioDataRef.current.length, samplingRate);
+      buffer.getChannelData(0).set(currentAudioDataRef.current);
+    }
+
+    // Resume context if suspended (was paused)
+    if (ctx.state === "suspended") {
+      await ctx.resume();
+    }
+
+    // Reset playback interrupted flag so animation frame works
+    isPlaybackInterruptedRef.current = false;
+    isPausedRef.current = false;
+
+    // Create new source node
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.connect(ctx.destination);
+
+    // Calculate start position in seconds for the source.start offset parameter
+    const offsetSeconds = clampedTime;
+
+    // Schedule playback from seek position
+    source.start(0, offsetSeconds);
+    activeSourceNodesRef.current.push(source);
+
+    // Update current time and playback start reference
+    playbackStartTimeRef.current = ctx.currentTime - clampedTime;
+    setCurrentTime(clampedTime);
+    setIsPlaying(true);
+    
+    // Start animation loop for time updates
+    startUpdateTimeAnimation(ctx);
+
+    // Clean up source when it ends
+    source.onended = () => {
+      const index = activeSourceNodesRef.current.indexOf(source);
+      if (index > -1) {
+        activeSourceNodesRef.current.splice(index, 1);
+      }
+      // If no more sources playing, set isPlaying to false
+      if (activeSourceNodesRef.current.length === 0) {
+        setIsPlaying(false);
+      }
+    };
+
+    console.log(`[audio-hook] Seeked to ${clampedTime.toFixed(2)} seconds`);
+  };
 
   return {
     // State
@@ -504,14 +651,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
     stopStreaming,
     pausePlayback,
     resumePlayback,
+    seekTo,
     initWorker, // NEW: manually initialize worker
   };
 }
 
-// ============================================================================
-// Helpers
-// ============================================================================
-
-// Re-export available models for convenience
-export { AVAILABLE_TTS_MODELS };
-export type { AudioGeneratorModel, AudioGenerationResult };
