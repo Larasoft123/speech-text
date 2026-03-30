@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "Openvoice - Editorial Lab",
+  title: "OpenVoice - Editorial Lab",
   description: "Professional transcription and translation platform",
 };
 
