@@ -14,7 +14,7 @@ interface DropZoneProps {
 }
 
 // Estilos fuera del componente
-const CONTAINER_CLASS = "group relative overflow-hidden bg-surface-container-low/50 backdrop-blur-sm rounded-[2rem] border-2 border-dashed border-outline-variant/20 hover:border-primary/40 transition-all duration-500 cursor-pointer flex flex-col items-center justify-center p-16 shadow-glow-primary";
+const CONTAINER_CLASS = "group relative overflow-hidden bg-surface-container-low backdrop-blur-sm rounded-[2rem] hover:bg-surface-container-lowest transition-all duration-500 cursor-pointer flex flex-col items-center justify-center p-16 shadow-glow-primary";
 
 const ICON_CLASS = "w-20 h-20 rounded-3xl bg-surface-container-high flex items-center justify-center mb-6 group-hover:scale-110 transition-transform duration-500";
 
@@ -55,22 +55,22 @@ export function DropZone({
       </div>
 
       {/* Title */}
-      <h3 className="text-xl font-semibold text-slate-100 mb-2 text-center">
+      <h3 className="text-xl font-semibold text-on-surface mb-2 text-center">
         {title}
       </h3>
 
       {/* Description */}
-      <p className="text-slate-500 text-sm mb-8 text-center">
+      <p className="text-on-surface-variant text-sm mb-8 text-center">
         {description}
       </p>
 
       {/* Supported Formats Badge */}
       <div className="flex items-center gap-2 mb-6">
-        <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+        <span className="text-[10px] text-outline uppercase tracking-wider">
           {supportedFormats}
         </span>
-        <span className="text-slate-700">•</span>
-        <span className="text-[10px] text-slate-600 uppercase tracking-wider">
+        <span className="text-outline-variant">•</span>
+        <span className="text-[10px] text-outline uppercase tracking-wider">
           Max {maxSize}
         </span>
       </div>

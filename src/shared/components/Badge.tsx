@@ -1,8 +1,8 @@
 import { ReactNode } from "react";
 
-type BadgeVariant = "primary" | "secondary" | "tertiary" | "status";
+export type BadgeVariant = "primary" | "secondary" | "tertiary" | "status";
 
-interface BadgeProps {
+export interface BadgeProps {
   variant?: BadgeVariant;
   children: ReactNode;
   className?: string;

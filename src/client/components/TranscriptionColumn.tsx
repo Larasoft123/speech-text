@@ -9,33 +9,30 @@ import { Progress } from '@/shared/components';
 import { IconSelect } from '@/shared/components/IconSelect';
 
 import type { WhisperModel, TimestampGranularity } from '@/client/lib/client-transcriber';
+import { AVAILABLE_MODELS } from '@/client/lib/client-transcriber';
 import type { LanguageCode } from '@/shared/components/LanguageSelect';
 
 interface TranscriptionColumnProps {
-  selectedModel: WhisperModel;
-  timestampGranularity: TimestampGranularity;
-  language: LanguageCode;
-  onModelChange: (modelId: string) => void;
-  onLanguageChange: (language: LanguageCode) => void;
-  onGranularityChange: (granularity: TimestampGranularity) => void;
-  availableModels: WhisperModel[];
-  availableLanguages: LanguageCode[];
-  availableGranularities: TimestampGranularity[];
   className?: string;
 }
 
 export function TranscriptionColumn({
-  selectedModel,
-  timestampGranularity,
-  language,
-  onModelChange,
-  onLanguageChange,
-  onGranularityChange,
-  availableModels,
-  availableLanguages,
-  availableGranularities,
   className = '',
 }: TranscriptionColumnProps) {
+  const [selectedModel, setSelectedModel] = useState<WhisperModel>(AVAILABLE_MODELS[2]);
+  const [timestampGranularity, setTimestampGranularity] = useState<TimestampGranularity>("word");
+  const [language, setLanguage] = useState<LanguageCode>(selectedModel.languages[0]);
+
+  const handleModelChange = (modelId: string) => {
+    const model = AVAILABLE_MODELS.find((m) => m.id === modelId);
+    if (!model) return;
+    setSelectedModel(model);
+    // Reset language if current one isn't supported by new model
+    if (!model.languages.includes(language)) {
+      setLanguage(model.languages[0]);
+    }
+  };
+
   const columnRef = useRef<HTMLDivElement>(null);
   const interactionTimeoutRef = useRef<NodeJS.Timeout | null>(null);
   const [hasInteracted, setHasInteracted] = useState(false);
@@ -53,7 +50,6 @@ export function TranscriptionColumn({
     isStreaming,
     fileInputRef,
     startRecording,
-    startSystemRecording,
     stopRecording,
     handleFileChange,
     downloadTranscription,
@@ -121,7 +117,7 @@ export function TranscriptionColumn({
       <ErrorBoundary>
         {/* Column Header with Status */}
         <div className="flex items-center justify-between">
-          <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+          <h2 className="text-lg font-semibold text-on-surface flex items-center gap-2">
             <span className="material-symbols-outlined text-primary">mic</span>
             Transcription
           </h2>
@@ -134,9 +130,9 @@ export function TranscriptionColumn({
         </div>
 
         {/* Compact Info Card */}
-        <div className="bg-surface-container-low/50 backdrop-blur-sm rounded-xl p-4 border border-outline-variant/10">
+        <div className="bg-surface-container-low backdrop-blur-sm rounded-xl p-4">
           <div className="flex items-center justify-between">
-            <p className="text-sm text-slate-400">
+            <p className="text-sm text-on-surface-variant">
               Runs Whisper in your browser. Model cached after first load.
             </p>
             <button className="text-secondary text-xs">Details</button>
@@ -144,32 +140,32 @@ export function TranscriptionColumn({
         </div>
 
         {/* Compact Settings Card */}
-        <div className="bg-surface-container-low/50 backdrop-blur-sm rounded-xl p-4 border border-outline-variant/10">
+        <div className="bg-surface-container-low backdrop-blur-sm rounded-xl p-4">
           <div className="flex items-center gap-4">
             <IconSelect
               label="Model"
               icon="model_training"
-              items={availableModels.map(m => ({ value: m.id, label: `${m.label} (${m.size})` }))}
+              items={AVAILABLE_MODELS.map(m => ({ value: m.id, label: `${m.label} (${m.size})` }))}
               value={selectedModel.id}
-              onChange={onModelChange}
+              onChange={handleModelChange}
               disabled={recorderState === 'processing'}
               className="flex-1"
             />
             <IconSelect
               label="Language"
               icon="translate"
-              items={availableLanguages.map(lang => ({ value: lang, label: lang.toUpperCase() }))}
+              items={selectedModel.languages.map(lang => ({ value: lang, label: lang.toUpperCase() }))}
               value={language}
-              onChange={onLanguageChange}
+              onChange={setLanguage}
               disabled={recorderState === 'processing'}
               className="flex-1"
             />
             <IconSelect
               label="Granularity"
               icon="select_all"
-              items={availableGranularities.map(gran => ({ value: gran, label: gran }))}
+              items={selectedModel.timestampGranularity.map(gran => ({ value: gran, label: gran }))}
               value={timestampGranularity}
-              onChange={onGranularityChange}
+              onChange={setTimestampGranularity}
               disabled={recorderState === 'processing'}
               className="flex-1"
             />
@@ -177,7 +173,7 @@ export function TranscriptionColumn({
         </div>
 
         {/* Recording Card (compact) */}
-        <div className="bg-surface-container-lowest/40 backdrop-blur-md rounded-2xl p-6 border border-outline-variant/10 space-y-4">
+        <div className="bg-surface-container-lowest/40 backdrop-blur-md rounded-2xl p-6 space-y-4">
           {/* Status / Waveform */}
           <div className="flex flex-col items-center gap-4">
             {recorderState === 'recording' ? (
@@ -203,17 +199,17 @@ export function TranscriptionColumn({
               <>
                 {/* Loading spinner */}
                 <div className="w-12 h-12 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin" />
-                <span className="text-xs text-slate-400">Processing audio...</span>
+                <span className="text-xs text-on-surface-variant">Processing audio...</span>
               </>
             ) : (
               <>
                 {/* Idle icon */}
                 <div className="w-16 h-16 rounded-full bg-surface-container flex items-center justify-center">
-                  <span className="material-symbols-outlined text-2xl text-slate-500">
+                  <span className="material-symbols-outlined text-2xl text-outline">
                     mic
                   </span>
                 </div>
-                <span className="text-xs text-slate-500">
+                <span className="text-xs text-outline">
                   {isModelReady ? "Ready to transcribe" : "Tap to start"}
                 </span>
               </>
@@ -228,7 +224,7 @@ export function TranscriptionColumn({
                   <Progress key={fp.file} file={fp.file} progress={fp.progress} />
                 ))
               ) : (
-                <p className="text-[10px] text-slate-500 text-center">
+                <p className="text-[10px] text-outline text-center">
                   {modelProgress.status === "initiate"
                     ? "Initializing model..."
                     : modelProgress.status === "download"
@@ -243,12 +239,12 @@ export function TranscriptionColumn({
 
           {/* Live Transcription Streaming */}
           {isStreaming && streamingText ? (
-            <div className="w-full bg-surface/50 backdrop-blur-sm rounded-xl p-4 border border-primary/20">
+            <div className="w-full bg-surface-container-low backdrop-blur-sm rounded-xl p-4">
               <div className="flex items-center gap-2 mb-2">
                 <span className="w-1.5 h-1.5 rounded-full bg-primary animate-pulse" />
                 <span className="text-[10px] font-semibold text-primary uppercase">Live</span>
               </div>
-              <p className="text-xs text-slate-200 whitespace-pre-wrap leading-relaxed">
+              <p className="text-xs text-on-surface whitespace-pre-wrap leading-relaxed">
                 {streamingText}<span className="inline-block w-1 h-3 ml-0.5 bg-primary/70 animate-pulse align-middle" />
               </p>
             </div>
@@ -258,7 +254,7 @@ export function TranscriptionColumn({
           <div className="flex flex-col items-center gap-3">
             {/* Selected file name */}
             {selectedFileName ? (
-              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container text-xs text-slate-300 max-w-full truncate">
+              <div className="flex items-center gap-2 px-3 py-1.5 rounded-lg bg-surface-container text-xs text-on-surface-variant max-w-full truncate">
                 <span className="material-symbols-outlined text-sm text-secondary">audio_file</span>
                 <span className="truncate">{selectedFileName}</span>
               </div>
@@ -268,7 +264,7 @@ export function TranscriptionColumn({
               {recorderState === 'recording' ? (
                 <button
                   onClick={stopRecording}
-                  className="flex-1 py-3 bg-error/10 hover:bg-error/20 text-error rounded-xl flex items-center justify-center gap-2 transition-all font-bold border border-error/20 text-sm"
+                  className="flex-1 py-3 bg-error/10 hover:bg-error/20 text-error rounded-xl flex items-center justify-center gap-2 transition-all font-bold text-sm"
                 >
                   <span className="material-symbols-outlined text-lg">stop</span>
                   Stop
@@ -278,27 +274,19 @@ export function TranscriptionColumn({
                   <button
                     onClick={startRecording}
                     disabled={recorderState === 'processing'}
-                    className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-xl flex items-center justify-center gap-1.5 font-bold shadow-sm shadow-primary/10 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="flex-1 py-3 bg-gradient-to-r from-primary to-primary-container text-on-primary rounded-xl flex items-center justify-center gap-1.5 font-bold hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     title="Record from Microphone"
                   >
                     <span className="material-symbols-outlined text-lg">mic</span>
                     Mic
                   </button>
 
-                  <button
-                    onClick={startSystemRecording}
-                    disabled={recorderState === 'processing'}
-                    className="flex-1 py-3 bg-surface-container-high hover:bg-surface-bright rounded-xl flex items-center justify-center gap-1.5 text-slate-200 font-bold transition-all border border-outline-variant/10 shadow-sm active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
-                    title="Capture Tab/System Audio"
-                  >
-                    <span className="material-symbols-outlined text-lg">screen_share</span>
-                    System
-                  </button>
+                 
 
                   <button
                     onClick={() => fileInputRef.current?.click()}
                     disabled={recorderState === 'processing'}
-                    className="py-3 px-4 bg-surface-container-high hover:bg-surface-bright rounded-xl flex items-center justify-center gap-1.5 text-slate-300 transition-all border border-outline-variant/10 active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
+                    className="py-3 px-4 bg-surface-container-high hover:bg-surface-bright rounded-xl flex items-center justify-center gap-1.5 text-on-surface-variant transition-all active:scale-[0.98] disabled:opacity-50 disabled:cursor-not-allowed text-sm"
                     title="Upload audio file"
                   >
                     <span className="material-symbols-outlined text-lg">upload</span>
@@ -318,7 +306,7 @@ export function TranscriptionColumn({
 
             {/* Format hint */}
             {recorderState === 'idle' && (
-              <p className="text-[9px] text-slate-600 text-center">
+              <p className="text-[9px] text-outline text-center">
                 Supports MP3, WAV, WebM, OGG, FLAC, AAC
               </p>
             )}
@@ -336,12 +324,12 @@ export function TranscriptionColumn({
 
         {/* Error display */}
         {error && (
-          <div className="bg-error/10 rounded-xl p-3 border border-error/20">
+          <div className="bg-error/10 rounded-xl p-3">
             <div className="flex items-center gap-2 mb-1">
               <span className="material-symbols-outlined text-error text-sm">error</span>
               <span className="text-xs font-semibold text-error">Error</span>
             </div>
-            <p className="text-[10px] text-slate-300">{error}</p>
+            <p className="text-[10px] text-on-surface-variant">{error}</p>
           </div>
         )}
       </ErrorBoundary>

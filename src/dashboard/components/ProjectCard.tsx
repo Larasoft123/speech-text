@@ -29,9 +29,9 @@ const TYPE_COLOR_MAP: Record<ProjectType, string> = {
 };
 
 // Estilos en constante para evitar recreacion
-const CARD_CLASS = "bg-surface-container-high/40 hover:bg-surface-container-high transition-all duration-300 rounded-2xl p-6 cursor-pointer border border-transparent hover:border-outline-variant/10 group";
+const CARD_CLASS = "bg-surface-container-high/40 hover:bg-surface-container-high transition-all duration-300 rounded-2xl p-6 cursor-pointer group";
 
-const AVATAR_CLASS = "w-6 h-6 rounded-full border-2 border-surface-container bg-surface-container overflow-hidden";
+const AVATAR_CLASS = "w-6 h-6 rounded-full bg-surface-container overflow-hidden";
 
 export function ProjectCard({
   project,
@@ -91,13 +91,13 @@ export function ProjectCard({
 
           {/* Pinned Icon */}
           {isPinned ? (
-            <Icon name="push_pin" size="sm" color="slate-500" />
+            <Icon name="push_pin" size="sm" color="outline" />
           ) : null}
         </div>
       </div>
 
       {/* Title */}
-      <h4 className="font-bold text-slate-100 group-hover:text-primary transition-colors mb-4">
+      <h4 className="font-bold text-on-surface group-hover:text-primary transition-colors mb-4">
         {title}
       </h4>
 
@@ -126,7 +126,7 @@ export function ProjectCard({
       <div className="flex flex-wrap items-center gap-4">
         {/* Duration */}
         {duration ? (
-          <span className="text-[10px] text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+          <span className="text-[10px] text-outline flex items-center gap-1 uppercase tracking-wider">
             <Icon name="schedule" size="xs" />
             {duration}
           </span>
@@ -134,7 +134,7 @@ export function ProjectCard({
 
         {/* Languages */}
         {hasLanguages ? (
-          <span className="text-[10px] text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+          <span className="text-[10px] text-outline flex items-center gap-1 uppercase tracking-wider">
             <Icon name="translate" size="xs" />
             {languages.join(", ")}
           </span>
@@ -142,7 +142,7 @@ export function ProjectCard({
 
         {/* Speakers */}
         {speakers !== undefined ? (
-          <span className="text-[10px] text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+          <span className="text-[10px] text-outline flex items-center gap-1 uppercase tracking-wider">
             <Icon name="group" size="xs" />
             {speakers} Speakers
           </span>
@@ -150,7 +150,7 @@ export function ProjectCard({
 
         {/* Last Modified */}
         {lastModified ? (
-          <span className="text-[10px] text-slate-500 flex items-center gap-1 uppercase tracking-wider">
+          <span className="text-[10px] text-outline flex items-center gap-1 uppercase tracking-wider">
             <Icon name="calendar_today" size="xs" />
             {lastModified}
           </span>
@@ -158,7 +158,7 @@ export function ProjectCard({
 
         {/* Progress percentage */}
         {hasProgress ? (
-          <span className="text-[10px] text-slate-500">
+          <span className="text-[10px] text-outline">
             {progress}% Analyzing
           </span>
         ) : null}

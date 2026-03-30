@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useRef, useCallback, useEffect } from "react";
+import { useState, useRef, useEffect } from "react";
 import {
   useAudioGeneration,
-  AVAILABLE_TTS_MODELS,
 } from "@/client/hooks/useAudioGeneration";
-import { Progress } from "@/shared/components";
+import { AVAILABLE_TTS_MODELS } from "@/client/lib/client-audio-generator";
+import { Progress, Button } from "@/shared/components";
 import { Checkbox } from "@/shared/components/Checkbox";
 import { StreamingAudioPlayer } from "./StreamingAudioPlayer";
 import { GeneratedAudioPlayer } from "./GeneratedAudioPlayer";
@@ -50,6 +50,7 @@ export function AudioGeneratorPanel({
     stopStreaming,
     pausePlayback,
     resumePlayback,
+    seekTo,
     initWorker,
   } = useAudioGeneration();
 
@@ -65,7 +66,7 @@ export function AudioGeneratorPanel({
     return 'idle';
   };
 
-  const handleFirstInteraction = useCallback(() => {
+  const handleFirstInteraction = () => {
     if (!hasInteracted) {
       setHasInteracted(true);
       // Debounce worker initialization by 500ms to prevent simultaneous loading
@@ -77,7 +78,7 @@ export function AudioGeneratorPanel({
         interactionTimeoutRef.current = null;
       }, 500);
     }
-  }, [hasInteracted, initWorker]);
+  }
 
   // Cleanup timeout on unmount
   useEffect(() => {
@@ -97,8 +98,8 @@ export function AudioGeneratorPanel({
       if (onAudioGenerated && generatedAudio) {
         onAudioGenerated(generatedAudio.audioUrl, generatedAudio.samplingRate);
       }
-    } catch (err) {
-      // Error is handled in the hook
+    } catch (error) {
+      console.error("Transcription error:", error);
     }
   };
 
@@ -121,7 +122,7 @@ export function AudioGeneratorPanel({
     >
       {/* Column Header with Status */}
       <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold text-slate-100 flex items-center gap-2">
+        <h2 className="text-lg font-semibold text-on-surface flex items-center gap-2">
           <span className="material-symbols-outlined text-secondary">volume_up</span>
           Audio Generation
         </h2>
@@ -134,23 +135,23 @@ export function AudioGeneratorPanel({
       </div>
 
       {/* Settings Card */}
-      <div className="bg-surface-container-low/50 backdrop-blur-sm rounded-2xl p-6 border border-outline-variant/10 space-y-5">
+      <div className="bg-surface-container-low backdrop-blur-sm rounded-2xl p-6 space-y-5">
         <div className="flex items-center gap-3">
           <span className="material-symbols-outlined text-secondary text-xl">settings</span>
-          <span className="text-sm font-semibold text-slate-200">Generation Settings</span>
+          <span className="text-sm font-semibold text-on-surface">Generation Settings</span>
         </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
           {/* Model Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Model
             </label>
             <select
               value={selectedModel.id}
               onChange={(e) => onModelChange(e.target.value)}
             disabled={isGenerating}
-              className="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl text-sm text-on-surface appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {AVAILABLE_TTS_MODELS.map((m) => (
                 <option key={m.id} value={m.id}>
@@ -162,7 +163,7 @@ export function AudioGeneratorPanel({
 
           {/* Voice Selector */}
           <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
               Voice
             </label>
             {selectedModel.voices.length > 0 ? (
@@ -170,7 +171,7 @@ export function AudioGeneratorPanel({
                 value={selectedVoice.id}
                 onChange={(e) => handleVoiceChange(e.target.value)}
               disabled={isGenerating}
-                className="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl text-sm text-slate-200 appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl text-sm text-on-surface appearance-none cursor-pointer focus:outline-none focus:ring-2 focus:ring-primary/30 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 {selectedModel.voices.map((v) => (
                   <option key={v.id} value={v.id}>
@@ -179,7 +180,7 @@ export function AudioGeneratorPanel({
                 ))}
               </select>
             ) : (
-              <div className="px-4 py-3 bg-surface-container-lowest border border-outline-variant/10 rounded-xl text-sm text-slate-300">
+              <div className="flex-1 bg-surface-container-highest/30 rounded-3xl p-8 backdrop-blur-sm text-on-surface-variant">
                 No voices available
               </div>
             )}
@@ -188,18 +189,18 @@ export function AudioGeneratorPanel({
       </div>
 
       {/* Generation Card */}
-      <div className="bg-surface-container-lowest/40 backdrop-blur-md rounded-[2rem] p-8 border border-outline-variant/10 space-y-6">
+      <div className="bg-surface-container-lowest/40 backdrop-blur-md rounded-[2rem] p-8 space-y-6">
         {/* Status */}
         <div className="flex flex-col items-center gap-4">
           {isGenerating ? (
             <>
               <div className="w-16 h-16 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin" />
-              <span className="text-sm text-slate-400">Generating audio...</span>
+              <span className="text-sm text-on-surface-variant">Generating audio...</span>
             </>
           ) : isLoading ? (
             <>
               <div className="w-16 h-16 rounded-full border-2 border-secondary/20 border-t-secondary animate-spin" />
-              <span className="text-sm text-slate-400">
+              <span className="text-sm text-on-surface-variant">
                 {progressStatus === "initiate"
                   ? "Initializing model..."
                   : progressStatus === "download"
@@ -212,11 +213,11 @@ export function AudioGeneratorPanel({
           ) : (
             <>
               <div className="w-20 h-20 rounded-full bg-surface-container flex items-center justify-center">
-                <span className="material-symbols-outlined text-4xl text-slate-500">
+                <span className="material-symbols-outlined text-4xl text-outline">
                   record_voice_over
                 </span>
               </div>
-              <span className="text-sm text-slate-500">
+              <span className="text-sm text-outline">
                 {isModelReady ? "Ready to generate" : "Loading model..."}
               </span>
             </>
@@ -227,7 +228,7 @@ export function AudioGeneratorPanel({
         {(isLoading || isGenerating) && modelProgress && (
           <div className="space-y-2">
             <Progress file={progressFile || progressStatus} progress={progressValue} />
-            <p className="text-xs text-slate-500 text-center">
+            <p className="text-xs text-outline text-center">
               {progressStatus === "initiate"
                 ? "Initializing model..."
                 : progressStatus === "download"
@@ -245,7 +246,7 @@ export function AudioGeneratorPanel({
 
         {/* Text Input */}
         <div className="space-y-2">
-          <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+          <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
             Text to Convert
           </label>
           <textarea
@@ -254,9 +255,9 @@ export function AudioGeneratorPanel({
             placeholder="Enter text to convert to speech..."
             disabled={isGenerating}
             rows={4}
-            className="w-full px-4 py-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl text-sm text-slate-200 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed resize-none"
+            className="w-full px-4 py-3 bg-surface-container-lowest rounded-xl text-sm text-on-surface placeholder:text-outline focus:outline-none focus:ring-2 focus:ring-primary/30 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed resize-none"
           />
-          <p className="text-[10px] text-slate-500 text-right">
+          <p className="text-[10px] text-outline text-right">
             {inputText.length} characters
           </p>
         </div>
@@ -276,46 +277,55 @@ export function AudioGeneratorPanel({
         <div className="flex flex-col items-center gap-4">
           {isStreaming && streamingProgress && (
             <div className="w-full max-w-xs space-y-2">
-              <div className="flex justify-between text-xs text-slate-400">
+              <div className="flex justify-between text-xs text-on-surface-variant">
                 <span>Streaming: {streamingProgress.current}/{streamingProgress.total} chunks</span>
-                <span>{Math.round((streamingProgress.current / streamingProgress.total) * 100)}%</span>
+                <span>{streamingProgress.total > 0 ? Math.round((streamingProgress.current / streamingProgress.total) * 100) : 0}%</span>
               </div>
               <div className="w-full bg-surface-container-lowest rounded-full h-2">
                 <div 
                   className="bg-primary h-2 rounded-full transition-all duration-300"
-                  style={{ width: `${(streamingProgress.current / streamingProgress.total) * 100}%` }}
+                  style={{ width: `${streamingProgress.total > 0 ? (streamingProgress.current / streamingProgress.total) * 100 : 0}%` }}
                 />
               </div>
             </div>
           )}
           
           {isStreaming ? (
-            <button
+            <Button
               onClick={stopStreaming}
-              className="w-full max-w-xs py-4 bg-gradient-to-r from-error to-error-container text-on-error rounded-2xl flex items-center justify-center gap-3 font-bold shadow-lg shadow-error/10 hover:opacity-90 active:scale-[0.98] transition-all"
+              variant="error"
+              size="lg"
+              fullWidth
+              className="max-w-xs"
+              icon="stop"
+              aria-label="Stop Streaming"
             >
-              <span className="material-symbols-outlined text-xl">stop</span>
               Stop Streaming
-            </button>
+            </Button>
           ) : (
-            <button
+            <Button
               onClick={handleGenerate}
               disabled={!inputText.trim() || isGenerating || isLoading}
-              className="w-full max-w-xs py-4 bg-gradient-to-r from-secondary to-secondary-container text-on-secondary rounded-2xl flex items-center justify-center gap-3 font-bold shadow-lg shadow-secondary/10 hover:opacity-90 active:scale-[0.98] transition-all disabled:opacity-50 disabled:cursor-not-allowed"
+              variant="secondary"
+              size="lg"
+              fullWidth
+              className="max-w-xs"
+              icon="volume_up"
+              loading={isGenerating || isLoading}
+              aria-label={isGenerating ? "Generating..." : isLoading ? "Loading..." : "Generate Audio"}
             >
-              <span className="material-symbols-outlined text-xl">volume_up</span>
               {isGenerating ? "Generating..." : isLoading ? "Loading..." : "Generate Audio"}
-            </button>
+            </Button>
           )}
 
           {isModelReady && (
-            <p className="text-[10px] text-slate-600 text-center">
+            <p className="text-[10px] text-outline-variant text-center">
               {device === "webgpu" ? "WebGPU" : "WASM"} • {selectedModel.size} • {selectedModel.label}
             </p>
           )}
           
           {!isModelReady && !isGenerating && (
-            <p className="text-[10px] text-slate-600 text-center">
+            <p className="text-[10px] text-outline text-center">
               {device === "webgpu" ? "Using WebGPU" : "Using WASM"} • {selectedModel.size}
             </p>
           )}
@@ -336,6 +346,7 @@ export function AudioGeneratorPanel({
           pausePlayback={pausePlayback}
           resumePlayback={resumePlayback}
           downloadAudio={downloadAudio}
+          onSeek={seekTo}
         />
       ) : (
         <GeneratedAudioPlayer
@@ -348,12 +359,12 @@ export function AudioGeneratorPanel({
 
       {/* Error */}
       {error && (
-        <div className="bg-error/10 rounded-2xl p-6 border border-error/20">
+        <div className="bg-error/10 rounded-2xl p-6">
           <div className="flex items-center gap-3 mb-2">
             <span className="material-symbols-outlined text-error text-xl">error</span>
             <span className="font-semibold text-error">Error</span>
           </div>
-          <p className="text-sm text-slate-300">{error}</p>
+          <p className="text-sm text-on-surface-variant">{error}</p>
         </div>
       )}
     </div>

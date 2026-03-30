@@ -28,11 +28,11 @@ export function ProjectGrid({
       {/* Section Header */}
       <div className="flex justify-between items-end mb-8">
         <div>
-          <h2 className="text-2xl font-bold text-slate-100">
+          <h2 className="text-2xl font-bold text-on-surface">
             {title}
           </h2>
           {subtitle && (
-            <p className="text-sm text-slate-500 mt-1">
+            <p className="text-sm text-on-surface-variant mt-1">
               {subtitle}
             </p>
           )}

@@ -42,15 +42,15 @@ export function StatusIndicator({
   return (
     <div className={`flex items-center gap-2 text-xs ${className}`}>
       <div className={`w-2 h-2 rounded-full ${getStateColor()}`} />
-      <span className="text-slate-400">{getStateText()}</span>
+      <span className="text-on-surface-variant">{getStateText()}</span>
       {model && state !== 'idle' && (
-        <span className="text-slate-500">• {model}</span>
+        <span className="text-outline">• {model}</span>
       )}
       {device && state === 'ready' && (
-        <span className="text-slate-500 uppercase">• {device}</span>
+        <span className="text-outline uppercase">• {device}</span>
       )}
       {progress !== undefined && state === 'loading' && (
-        <span className="text-slate-500">{Math.round(progress)}%</span>
+        <span className="text-outline">{Math.round(progress)}%</span>
       )}
     </div>
   );

@@ -1,6 +1,5 @@
 "use client";
 
-import { Icon } from "@/shared/components/Icon";
 import { Badge } from "@/shared/components/Badge";
 import { Button } from "@/shared/components/Button";
 
@@ -42,9 +41,8 @@ export function LiveSessionCard({
       className={`
         bg-surface-container-lowest/40
         backdrop-blur-md
-        rounded-[2rem]
+        rounded-3xl
         p-8
-        border border-outline-variant/10
         flex flex-col justify-between
         ${className}
       `}
@@ -55,11 +53,11 @@ export function LiveSessionCard({
           {badgeLabel}
         </Badge>
 
-        <h3 className="text-2xl font-bold text-slate-100 mb-2">
+        <h3 className="text-2xl font-bold text-on-surface mb-2">
           {title}
         </h3>
 
-        <p className="text-slate-500 text-sm leading-relaxed">
+        <p className="text-on-surface-variant text-sm leading-relaxed">
           {description}
         </p>
       </div>
@@ -87,7 +85,7 @@ export function LiveSessionCard({
 
       {/* CTA Button */}
       <Button
-        variant="secondary"
+        variant="surface"
         size="lg"
         fullWidth
         icon="mic"

@@ -1,6 +1,7 @@
 "use client";
 
 import { Icon } from "@/shared/components/Icon";
+import { Button } from "@/shared/components/Button";
 import type { NavItem, IconName } from "../../shared/types";
 
 interface SideNavProps {
@@ -37,7 +38,6 @@ export function SideNav({
         h-[calc(100vh-64px)] w-64
         bg-surface-container-lowest
         flex flex-col
-        border-r border-outline-variant/20
         z-40
       "
     >
@@ -50,17 +50,16 @@ export function SideNav({
               w-10 h-10 rounded-lg
               bg-surface-container
               flex items-center justify-center
-              border border-outline-variant/10
             "
           >
             <Icon name={logoIcon} size="md" color={`var(--${logoIconColor})`} />
           </div>
           <div>
-            <h2 className="text-sm font-bold text-slate-100 leading-none">
+            <h2 className="text-sm font-bold text-on-surface leading-none">
               {title}
             </h2>
             {subtitle && (
-              <p className="text-[10px] text-slate-500 uppercase tracking-widest mt-1">
+              <p className="text-[10px] text-outline uppercase tracking-widest mt-1">
                 {subtitle}
               </p>
             )}
@@ -82,8 +81,8 @@ export function SideNav({
                   transition-all duration-300
                   ${
                     isActive
-                      ? "bg-surface-container text-slate-100"
-                      : "text-slate-500 hover:text-slate-300 hover:bg-surface-container/50 hover:translate-x-1"
+                      ? "bg-surface-container text-on-surface"
+                      : "text-outline hover:text-on-surface-variant hover:bg-surface-container/50 hover:translate-x-1"
                   }
                 `}
               >
@@ -101,28 +100,21 @@ export function SideNav({
 
       {/* CTA Button */}
       <div className="px-6 mt-auto">
-        <button
+        <Button
           onClick={onCtaClick}
-          className="
-            w-full py-3
-            bg-gradient-to-r from-primary to-primary-container
-            text-on-primary font-bold
-            rounded-xl text-sm
-            shadow-lg shadow-primary/10
-            active:scale-[0.98] transition-all
-            hover:opacity-90
-          "
+          variant="primary"
+          size="md"
+          fullWidth
+          icon={ctaIcon}
+          aria-label={ctaLabel}
         >
-          <span className="flex items-center justify-center gap-2">
-            <Icon name={ctaIcon} size="md" weight="500" />
-            {ctaLabel}
-          </span>
-        </button>
+          {ctaLabel}
+        </Button>
       </div>
 
       {/* Footer Links */}
       {footerItems.length > 0 && (
-        <div className="px-6 py-8 border-t border-outline-variant/10">
+        <div className="px-6 py-8">
           <nav className="space-y-1">
             {footerItems.map((item, index) => (
               <a
@@ -130,7 +122,7 @@ export function SideNav({
                 href={item.href}
                 className="
                   flex items-center gap-3 px-4 py-2
-                  text-slate-600 hover:text-brand-primary
+                  text-outline hover:text-brand-primary
                   text-sm font-medium
                   transition-colors
                 "

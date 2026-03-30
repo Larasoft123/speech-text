@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 interface StreamingAudioPlayerProps {
   isStreaming: boolean;
@@ -12,6 +12,7 @@ interface StreamingAudioPlayerProps {
   pausePlayback: () => void;
   resumePlayback: () => void;
   downloadAudio: () => void;
+  onSeek?: (time: number) => void;
 }
 
 export function StreamingAudioPlayer({
@@ -20,63 +21,83 @@ export function StreamingAudioPlayer({
   isPlaying,
   currentTime,
   totalDuration,
-  streamingStartTime,
   generatedAudio,
   stopStreaming,
   pausePlayback,
   resumePlayback,
   downloadAudio,
+  onSeek,
 }: StreamingAudioPlayerProps) {
-  const [currentRTF, setCurrentRTF] = useState(0);
+  
+  const [seekValue, setSeekValue] = useState(currentTime);
+  const seekRef = useRef<HTMLInputElement>(null);
+  const audioRef = useRef<HTMLAudioElement>(null);
 
-  // Helper to format time in seconds to mm:ss.SS
+  // Sync seek value with currentTime
+  useEffect(() => {
+    if (!isStreaming) {
+      setSeekValue(currentTime);
+    }
+  }, [currentTime, isStreaming]);
+
+  // Format time helper
   const formatTime = (seconds: number): string => {
     if (!isFinite(seconds) || seconds < 0) return "0:00.00";
     const mins = Math.floor(seconds / 60);
     const secs = Math.floor(seconds % 60);
     const ms = Math.floor((seconds % 1) * 100);
-    return `${mins}:${secs.toString().padStart(2, "0")}.${ms
-      .toString()
-      .padStart(2, "0")}`;
+    return `${mins}:${secs.toString().padStart(2, "0")}.${ms.toString().padStart(2, "0")}`;
   };
 
-  // RTF Update effect
-  useEffect(() => {
-    const updateRTF = () => {
-      if (!streamingStartTime || totalDuration <= 0) {
-        setCurrentRTF(prev => prev === 0 ? 0 : 0);
-        return;
-      }
-      const processingTimeSec = (Date.now() - streamingStartTime) / 1000;
-      setCurrentRTF(processingTimeSec / totalDuration);
-    };
+  
 
-    // If still streaming, update periodically for live feedback
-    if (isStreaming && streamingStartTime && totalDuration > 0) {
-      updateRTF(); // Initial update when streaming starts or totalDuration is available
-      const interval = setInterval(updateRTF, 200);
-      return () => clearInterval(interval);
-    } else if (!isStreaming) {
-      // Refresh value once when streaming stops to show final RTF
-      updateRTF();
+  // Handle seek change (during drag)
+  const handleSeekChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = parseFloat(e.target.value);
+    setSeekValue(value);
+    // Call seek immediately while dragging for real-time feedback
+    if (onSeek && !isStreaming) {
+      onSeek(value);
     }
-  }, [streamingStartTime, totalDuration, isStreaming]);
+  }
+
+  // Handle seek commit (on mouse up or touch end) - fallback for browsers that don't support onChange during drag
+  const handleSeekCommit = () => {
+    if (onSeek && !isStreaming) {
+      onSeek(seekValue);
+    }
+  }
+
+  // Handle native audio element seek (for generated audio)
+  const handleAudioSeek = () => {
+    if (audioRef.current && !isStreaming) {
+      const time = audioRef.current.currentTime;
+      setSeekValue(time);
+      if (onSeek) {
+        onSeek(time);
+      }
+    }
+  }
+
+  // Calculate progress percentage
+  const progressPercent = totalDuration > 0 ? (currentTime / totalDuration) * 100 : 0;
+  const seekPercent = totalDuration > 0 ? (seekValue / totalDuration) * 100 : 0;
 
   if (!isStreaming && totalDuration <= 0) {
     return null;
   }
 
   return (
-    <div className="bg-surface-container-low/50 backdrop-blur-sm rounded-2xl p-6 border border-outline-variant/10 space-y-4">
-      {/* Streaming Progress Bar */}
-      {isStreaming && streamingProgress && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm text-slate-300">
-            <span>
+    <div className="bg-surface-container-low backdrop-blur-sm rounded-2xl p-6 space-y-4">
+        {/* Streaming Progress Bar - Only during generation */}
+        {isStreaming && streamingProgress && (
+          <div className="space-y-2">
+            <div className="flex justify-between text-sm text-on-surface">
+              <span>
               Generating... (
-              {Math.round(
-                (streamingProgress.current / streamingProgress.total) * 100
-              )}
+              {streamingProgress.total > 0 
+                ? Math.round((streamingProgress.current / streamingProgress.total) * 100)
+                : 0}
               %)
             </span>
             <button
@@ -91,9 +112,9 @@ export function StreamingAudioPlayer({
             <div
               className="bg-primary h-2 rounded-full transition-all duration-300"
               style={{
-                width: `${
-                  (streamingProgress.current / streamingProgress.total) * 100
-                }%`,
+                width: `${streamingProgress.total > 0 
+                  ? (streamingProgress.current / streamingProgress.total) * 100 
+                  : 0}%`,
               }}
             />
           </div>
@@ -102,39 +123,44 @@ export function StreamingAudioPlayer({
 
       {/* Audio Player Controls */}
       <div className="flex items-center gap-4">
-        {/* RTF Display */}
-        <div className="text-xs text-slate-400 w-16">
-          {currentRTF.toFixed(3)}x<br />
-          <span className="text-[10px]">RTF ↓</span>
-        </div>
-
-        {/* Play/Pause Button */}
+        
         <button
           onClick={isPlaying ? pausePlayback : resumePlayback}
-          className="p-3 rounded-full bg-surface-container-high hover:bg-surface-bright text-slate-200 transition-colors"
+          disabled={isStreaming}
+          className="p-3 rounded-full bg-surface-container-high hover:bg-surface-bright text-on-surface transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
         >
           <span className="material-symbols-outlined text-xl">
             {isPlaying ? "pause" : "play_arrow"}
           </span>
         </button>
 
-        {/* Time Display */}
+        {/* Time Display + Seek Bar */}
         <div className="flex-1">
-          <div className="flex justify-between text-sm text-slate-300 font-mono">
-            <span>{formatTime(currentTime)}</span>
+          <div className="flex justify-between text-sm text-on-surface font-mono">
+            <span>{formatTime(isStreaming ? currentTime : seekValue)}</span>
             <span>{formatTime(totalDuration)}</span>
           </div>
 
-          {/* Progress Bar */}
-          <div className="w-full bg-surface-container-lowest rounded-full h-1 mt-1">
-            <div
-              className="bg-blue-400 h-1 rounded-full transition-all duration-200"
+          {/* Single Seek Bar (acts as both progress and seek control) */}
+          <div className="w-full mt-1">
+            <input
+              ref={seekRef}
+              type="range"
+              min="0"
+              max={totalDuration || 0}
+              step="0.01"
+              value={isStreaming ? currentTime : seekValue}
+              onChange={handleSeekChange}
+              onMouseUp={handleSeekCommit}
+              onTouchEnd={handleSeekCommit}
+              disabled={isStreaming || totalDuration <= 0}
+              className="w-full h-2 bg-surface-container-lowest rounded-full appearance-none cursor-pointer disabled:cursor-not-allowed"
               style={{
-                width: `${
-                  totalDuration > 0
-                    ? (currentTime / totalDuration) * 100
-                    : 0
-                }%`,
+                background: `linear-gradient(to right, var(--primary) 0%, var(--primary) ${
+                  isStreaming ? progressPercent : seekPercent
+                }%, var(--surface-container-high) ${
+                  isStreaming ? progressPercent : seekPercent
+                }%, var(--surface-container-high) 100%)`,
               }}
             />
           </div>
@@ -144,13 +170,23 @@ export function StreamingAudioPlayer({
         {!isStreaming && generatedAudio && (
           <button
             onClick={downloadAudio}
-            className="p-2 rounded-xl bg-surface-container-high hover:bg-surface-bright text-slate-300 transition-colors"
+            className="p-2 rounded-xl bg-surface-container-high hover:bg-surface-bright text-on-surface transition-colors"
             title="Download audio"
           >
             <span className="material-symbols-outlined text-lg">download</span>
           </button>
         )}
       </div>
+
+      {/* Hidden audio element for seek synchronization (non-streaming only) */}
+      {generatedAudio && !isStreaming && (
+        <audio
+          ref={audioRef}
+          src={generatedAudio.audioUrl}
+          onSeeked={handleAudioSeek}
+          style={{ display: 'none' }}
+        />
+      )}
     </div>
   );
 }

@@ -12,7 +12,7 @@ interface FooterProps {
 }
 
 export function Footer({
-  copyright = "© 2024 AetherVoice AI • Ethereal Tool v2.0",
+  copyright = "© 2024 OpenVoice AI • Ethereal Tool v2.0",
   links = [],
   sidebarWidth = 256,
 }: FooterProps) {
@@ -24,13 +24,12 @@ export function Footer({
         bg-surface-container-lowest
         flex justify-between items-center
         px-12
-        border-t border-outline-variant/10
         z-40
       "
       style={{ width: `calc(100% - ${sidebarWidth}px)` }}
     >
       {/* Copyright */}
-      <div className="text-[10px] uppercase tracking-widest text-slate-500">
+      <div className="text-[10px] uppercase tracking-widest text-outline">
         {copyright}
       </div>
 
@@ -42,7 +41,7 @@ export function Footer({
             href={link.href}
             className="
               text-[10px] uppercase tracking-widest
-              text-slate-600 hover:text-brand-primary
+              text-outline hover:text-brand-primary
               transition-colors
             "
           >

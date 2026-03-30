@@ -23,10 +23,10 @@ export function DashboardHero({
 
       {/* Text */}
       <div className="text-center mb-12 relative z-10">
-        <h1 className="text-4xl font-extrabold tracking-tight text-slate-100 mb-3">
+        <h1 className="text-4xl font-extrabold tracking-tight text-on-surface mb-3">
           {title}
         </h1>
-        <p className="text-slate-400 max-w-md mx-auto">
+        <p className="text-on-surface-variant max-w-md mx-auto">
           {subtitle}
         </p>
       </div>

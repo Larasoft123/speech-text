@@ -27,18 +27,18 @@ export function IconSelect<T extends string = string>({
 
   return (
     <div className={`space-y-2 ${className}`}>
-      <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+      <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
         {label}
       </label>
       <div className="relative">
-        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-slate-500 pointer-events-none">
+        <span className="material-symbols-outlined absolute left-4 top-1/2 -translate-y-1/2 text-base text-outline pointer-events-none">
           {icon}
         </span>
         <select
           value={value}
           onChange={(e) => onChange(e.target.value as T)}
           disabled={disabled || isSingleOption}
-          className={`w-full pl-12 pr-4 py-3 bg-surface-container-lowest border border-outline-variant/20 rounded-xl text-sm text-slate-200 appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary/40 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isSingleOption ? 'cursor-default' : 'cursor-pointer'}`}
+          className={`w-full pl-12 pr-4 py-3 bg-surface-container-lowest rounded-xl text-sm text-on-surface appearance-none focus:outline-none focus:ring-2 focus:ring-primary/30 hover:bg-surface-container transition-colors disabled:opacity-50 disabled:cursor-not-allowed ${isSingleOption ? 'cursor-default' : 'cursor-pointer'}`}
         >
           {items.map((item) => (
             <option key={item.value} value={item.value} disabled={item.disabled}>
@@ -47,7 +47,7 @@ export function IconSelect<T extends string = string>({
           ))}
         </select>
         {isSingleOption && (
-          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-slate-600 uppercase tracking-wider pointer-events-none">
+          <span className="absolute right-3 top-1/2 -translate-y-1/2 text-[10px] text-outline-variant uppercase tracking-wider pointer-events-none">
             Only
           </span>
         )}

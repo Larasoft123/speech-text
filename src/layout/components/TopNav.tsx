@@ -14,7 +14,7 @@ interface TopNavProps {
 }
 
 export function TopNav({
-  logo = "AetherVoice",
+  logo = "OpenVoice",
   navLinks = [],
   userAvatar,
   onNotificationsClick,
@@ -30,7 +30,7 @@ export function TopNav({
         backdrop-blur-xl
         flex justify-between items-center
         px-8
-        shadow-[0_20px_40px_rgba(229,43,80,0.04)]
+        shadow-ambient
       "
     >
       {/* Logo & Navigation */}
@@ -38,7 +38,7 @@ export function TopNav({
         {/* Logo */}
         <button
           onClick={onLogoClick}
-          className="text-xl font-bold tracking-tighter text-slate-100 hover:text-primary transition-colors"
+          className="text-xl font-bold tracking-tighter text-on-surface hover:text-primary transition-colors"
         >
           {logo}
         </button>
@@ -54,7 +54,7 @@ export function TopNav({
                 ${
                   link.active
                     ? "text-brand-primary border-b-2 border-brand-primary"
-                    : "text-slate-400 hover:text-slate-100"
+                    : "text-on-surface-variant hover:text-on-surface"
                 }
               `}
             >
@@ -70,8 +70,8 @@ export function TopNav({
         <button
           onClick={onNotificationsClick}
           className="
-            p-2 text-slate-400
-            hover:bg-surface-container-high hover:text-slate-100
+            p-2 text-on-surface-variant
+            hover:bg-surface-container-high hover:text-on-surface
             rounded-full transition-all duration-300 active:scale-95
           "
           aria-label="Notifications"
@@ -83,8 +83,8 @@ export function TopNav({
         <button
           onClick={onSettingsClick}
           className="
-            p-2 text-slate-400
-            hover:bg-surface-container-high hover:text-slate-100
+            p-2 text-on-surface-variant
+            hover:bg-surface-container-high hover:text-on-surface
             rounded-full transition-all duration-300 active:scale-95
           "
           aria-label="Settings"
@@ -98,7 +98,6 @@ export function TopNav({
             className="
               w-8 h-8 rounded-full
               bg-surface-container-high overflow-hidden
-              border border-outline-variant/20
               cursor-pointer hover:ring-2 hover:ring-primary/50
               transition-all
             "

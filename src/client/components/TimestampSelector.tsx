@@ -9,14 +9,14 @@ interface TimestampSelectorProps {
 }
 
 const GRANULARITY_ACTIVE_CLASS = "bg-primary/10 border-primary/30 text-primary";
-const GRANULARITY_INACTIVE_CLASS = "bg-surface-container-lowest border-outline-variant/10 text-slate-400 hover:text-slate-200 hover:border-outline-variant/30";
+const GRANULARITY_INACTIVE_CLASS = "bg-surface-container-lowest text-on-surface-variant hover:text-on-surface hover:bg-surface-container";
 
 export function TimestampSelector({ timestampGranularity, setTimestampGranularity, isProcessing, availableGranularities }: TimestampSelectorProps) {
 
 
     return (
         <div className="space-y-2">
-            <label className="text-xs font-medium text-slate-400 uppercase tracking-wider">
+            <label className="text-xs font-medium text-on-surface-variant uppercase tracking-wider">
                 Timestamp Granularity
             </label>
             <div className="grid grid-cols-2 gap-2">

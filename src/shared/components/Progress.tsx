@@ -5,7 +5,7 @@ export function Progress({ file, progress }: FileProgress) {
 
     return (
         <div className="space-y-1" >
-            <div className="flex justify-between text-xs text-slate-500">
+            <div className="flex justify-between text-xs text-outline">
                 <span className="truncate max-w-xs">{file}</span>
                 <span>{progress.toFixed(1)}%</span>
             </div>
