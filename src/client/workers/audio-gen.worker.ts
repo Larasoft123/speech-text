@@ -1,8 +1,5 @@
-import { pipeline, env, type TextToAudioPipeline } from "@huggingface/transformers";
+import { pipeline, type TextToAudioPipeline } from "@huggingface/transformers";
 
-// Configure environment
-env.allowRemoteModels = true;
-env.useBrowserCache = true;
 
 // --- Types ---
 
