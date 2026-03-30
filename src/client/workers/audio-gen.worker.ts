@@ -39,6 +39,8 @@ export interface WorkerResponseProgress {
   status: "initiate" | "download" | "progress" | "done" | "ready";
   progress?: number;
   file?: string;
+  loaded?: number;
+  total?: number;
 }
 
 export interface WorkerResponseResult {
@@ -167,11 +169,16 @@ async function initPipeline(modelId: string, voice?: string): Promise<TextToAudi
         status: string;
         file?: string;
         progress?: number;
+        loaded?: number;
+        total?: number;
       }) => {
         postResponse({
           type: "progress",
           status: info.status as "initiate" | "download" | "progress" | "done" | "ready",
           progress: info.progress,
+          file: info.file,
+          loaded: info.loaded,
+          total: info.total,
         });
       },
     });

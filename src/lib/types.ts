@@ -17,6 +17,8 @@ export interface ModelProgress {
   status: "initiate" | "download" | "progress" | "done" | "ready" | "error";
   file?: string;
   progress?: number;
+  loaded?: number;
+  total?: number;
 }
 
 /**

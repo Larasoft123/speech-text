@@ -58,6 +58,8 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
   const currentAudioUrlRef = useRef<string | null>(null);
   const currentAudioDataRef = useRef<Float32Array | null>(null);
   const lastInitializedModelIdRef = useRef<string | null>(null);
+  // Track per-file loaded/total bytes for weighted aggregate progress
+  const fileSizesRef = useRef<Map<string, { loaded: number; total: number }>>(new Map());
   // Per-instance: request counter and pending requests map (no shared module state)
   const requestCounterRef = useRef(0);
   const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
@@ -203,14 +205,36 @@ export function useAudioGeneration(initialModel?: AudioGeneratorModel, autoInit:
           setDevice(response.device);
           setGenerationState("idle");
           setModelProgress(null);
+          fileSizesRef.current.clear();
           console.log(`[audio-hook] Worker ready with ${response.device}`);
           break;
         }
 
         case "progress": {
+          // Track per-file loaded/total bytes for weighted progress
+          if (response.file && response.loaded != null && response.total != null) {
+            fileSizesRef.current.set(response.file, {
+              loaded: response.loaded,
+              total: response.total,
+            });
+          }
+
+          // Calculate aggregate progress from all tracked files
+          const sizes = fileSizesRef.current;
+          let aggregateProgress = response.progress;
+          if (sizes.size > 0) {
+            let totalLoaded = 0;
+            let totalSize = 0;
+            for (const { loaded, total } of sizes.values()) {
+              totalLoaded += loaded;
+              totalSize += total;
+            }
+            aggregateProgress = totalSize > 0 ? (totalLoaded / totalSize) * 100 : 0;
+          }
+
           setModelProgress({
             status: response.status,
-            progress: response.progress,
+            progress: aggregateProgress,
             file: response.file,
           });
           break;

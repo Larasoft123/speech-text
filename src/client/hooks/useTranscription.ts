@@ -47,6 +47,8 @@ export function useTranscription(
   const [activeRecorder, setActiveRecorder] = useState<"microphone" | "system" | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Track per-file loaded/total bytes for weighted aggregate progress
+  const fileSizesRef = useRef<Map<string, { loaded: number; total: number }>>(new Map());
   // Per-instance: request counter and pending requests map (no shared module state)
   const requestCounterRef = useRef(0);
   const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
@@ -87,27 +89,51 @@ export function useTranscription(
           setDevice(response.device);
           setModelProgress(null);
           setFileProgress([]);
+          fileSizesRef.current.clear();
           console.log(`[hook] Worker ready`);
           break;
         }
 
         case "progress": {
+          // Track per-file loaded/total bytes for weighted progress
+          if (response.file && response.loaded != null && response.total != null) {
+            fileSizesRef.current.set(response.file, {
+              loaded: response.loaded,
+              total: response.total,
+            });
+          }
+
+          // Calculate aggregate progress from all tracked files
+          const sizes = fileSizesRef.current;
+          let aggregateProgress = response.progress;
+          if (sizes.size > 0) {
+            let totalLoaded = 0;
+            let totalSize = 0;
+            for (const { loaded, total } of sizes.values()) {
+              totalLoaded += loaded;
+              totalSize += total;
+            }
+            aggregateProgress = totalSize > 0 ? (totalLoaded / totalSize) * 100 : 0;
+          }
+
           setModelProgress({
             status: response.status,
             file: response.file,
-            progress: response.progress,
+            progress: aggregateProgress,
           });
+
           if (response.status === "progress" && response.file) {
+            const filePercent = response.progress ?? 0;
             setFileProgress((prev) => {
               const existing = prev.find((fp) => fp.file === response.file);
               if (existing) {
                 return prev.map((fp) =>
                   fp.file === response.file
-                    ? { ...fp, progress: response.progress ?? 0 }
+                    ? { ...fp, progress: filePercent }
                     : fp,
                 );
               }
-              return [...prev, { file: response.file!, progress: response.progress ?? 0 }];
+              return [...prev, { file: response.file!, progress: filePercent }];
             });
           }
           break;

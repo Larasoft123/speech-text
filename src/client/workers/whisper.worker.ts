@@ -35,6 +35,8 @@ export interface WorkerResponseProgress {
   status: string;
   file?: string;
   progress?: number;
+  loaded?: number;
+  total?: number;
 }
 
 export interface WorkerResponseResult {
@@ -176,6 +178,8 @@ async function initPipeline(modelId: string): Promise<AutomaticSpeechRecognition
             status: info.status,
             file: info.file,
             progress: info.progress,
+            loaded: info.loaded,
+            total: info.total,
           });
         },
       });
