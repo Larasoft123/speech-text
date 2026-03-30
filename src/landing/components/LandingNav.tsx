@@ -24,7 +24,7 @@ export function LandingNav() {
 
         <Link href="/">
           <h2 className="text-xl font-bold tracking-tighter text-brand-primary">
-            OpenVoice
+            Openvoice
           </h2>
         </Link>
 
