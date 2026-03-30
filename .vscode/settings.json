@@ -2,6 +2,7 @@
     "conventionalCommits.scopes": [
         "docs",
         "skills",
-        "models"
+        "models",
+        "CD"
     ]
 }

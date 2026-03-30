@@ -1,0 +1,37 @@
+# Dependencies
+node_modules
+.pnpm-debug.log*
+
+# Next.js
+.next
+out
+
+# Git
+.git
+.gitignore
+
+# IDE / Tooling
+.vscode
+.agents
+.atl
+sdd
+
+# Docs (not needed in production)
+docs
+
+# Audio/video files
+*.mp3
+*.mp4
+*.wav
+*.webm
+*.m4a
+
+# Config not needed in container
+CLAUDE.md
+AGENTS.md
+README.md
+skills-lock.json
+
+# TypeScript build cache
+*.tsbuildinfo
+next-env.d.ts
