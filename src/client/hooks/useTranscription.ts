@@ -7,11 +7,9 @@
 import { useState, useRef, useEffect } from "react";
 import { prepareAudioForWhisper } from "@/client/lib/client-audio-utils";
 import { useStreaming } from "@/client/hooks/useStreaming";
-import { useSystemAudioRecorder } from "@/client/hooks/useSystemAudioRecorder";
 import { useMicrophoneRecorder } from "@/client/hooks/useMicrophoneRecorder";
 import type { TranscriptionResult } from "@/lib/types";
 import {
-  AVAILABLE_MODELS,
   type WhisperModel,
   type TimestampGranularity,
 } from "@/client/lib/client-transcriber";
@@ -26,15 +24,11 @@ export type { ModelProgress } from "@/lib/types";
 
 export type RecorderState = "idle" | "recording" | "processing";
 
-// Unique ID counter for tracking requests
-let requestCounter = 0;
-
-// Pending request resolver
+// Pending request resolver type
 type PendingRequest = {
   resolve: (result: TranscriptionResult) => void;
   reject: (error: Error) => void;
 };
-const pendingRequests = new Map<string, PendingRequest>();
 
 export function useTranscription(
   model: WhisperModel,
@@ -53,6 +47,9 @@ export function useTranscription(
   const [activeRecorder, setActiveRecorder] = useState<"microphone" | "system" | null>(null);
   const workerRef = useRef<Worker | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // Per-instance: request counter and pending requests map (no shared module state)
+  const requestCounterRef = useRef(0);
+  const pendingRequestsRef = useRef(new Map<string, PendingRequest>());
 
   // Streaming Hook
   const {
@@ -65,10 +62,7 @@ export function useTranscription(
   } = useStreaming();
 
   
-  const {
-    startRecording: startSystemRecordingRaw,
-    stopRecording: stopSystemRecording,
-  } = useSystemAudioRecorder();
+
 
   const {
     startRecording: startMicrophoneRecordingRaw,
@@ -120,19 +114,19 @@ export function useTranscription(
         }
 
         case "result": {
-          const pending = pendingRequests.get(response.id);
+          const pending = pendingRequestsRef.current.get(response.id);
           if (pending) {
             console.log("result", pending.resolve(response.result));
-            pendingRequests.delete(response.id);
+            pendingRequestsRef.current.delete(response.id);
           }
           break;
         }
 
         case "error": {
-          const pending = pendingRequests.get(response.id ?? "");
+          const pending = pendingRequestsRef.current.get(response.id ?? "");
           if (pending) {
             pending.reject(new Error(response.error));
-            pendingRequests.delete(response.id ?? "");
+            pendingRequestsRef.current.delete(response.id ?? "");
           } else {
             // Non-request error (e.g., init failure)
             setError(response.error);
@@ -170,7 +164,11 @@ export function useTranscription(
         workerRef.current.postMessage({ type: "dispose" } satisfies WorkerRequest);
         workerRef.current.terminate();
         workerRef.current = null;
-        pendingRequests.clear();
+        // Clean up all pending requests for this instance
+        for (const [, pending] of pendingRequestsRef.current) {
+          pending.reject(new Error("Component unmounted"));
+        }
+        pendingRequestsRef.current.clear();
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -209,11 +207,11 @@ export function useTranscription(
       startStream();
 
       // Generate unique request ID
-      const id = `req-${++requestCounter}`;
+      const id = `req-${++requestCounterRef.current}`;
 
       // Create a promise that resolves when worker responds
       const result = await new Promise<TranscriptionResult>((resolve, reject) => {
-        pendingRequests.set(id, { resolve, reject });
+        pendingRequestsRef.current.set(id, { resolve, reject });
 
         // Transfer the Float32Array for zero-copy (worker takes ownership)
         workerRef.current!.postMessage(
@@ -279,31 +277,11 @@ export function useTranscription(
     }
   }
 
-  async function startSystemRecording() {
-    setError(null);
-    setTranscription(null);
-    setActiveRecorder("system");
-    setRecorderState("recording");
 
-    try {
-      const blob = await startSystemRecordingRaw();
-      const file = new File([blob], "SystemAudio.webm", { type: "audio/webm" });
-      await transcribe(file);
-    } catch (err) {
-      setError(
-        err instanceof Error ? err.message : "Failed to capture system audio",
-      );
-    } finally {
-      setActiveRecorder(null);
-      setRecorderState("idle");
-    }
-  }
 
   function stopRecording() {
     if (activeRecorder === "microphone") {
       stopMicrophoneRecording();
-    } else if (activeRecorder === "system") {
-      stopSystemRecording();
     }
   }
 
@@ -365,7 +343,6 @@ export function useTranscription(
 
     // Actions
     startRecording,
-    startSystemRecording,
     stopRecording,
     handleFileChange,
     downloadTranscription,
